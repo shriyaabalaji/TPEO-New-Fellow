@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isUtUser() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.matches('^.*@utexas\\.edu$');
+    }
+
+    // users collection
+    match /users/{userId} {
+      allow read, write: if isUtUser() && request.auth.uid == userId;
+    }
+
+    // providerProfiles collection
+    match /providerProfiles/{providerId} {
+      allow create: if isUtUser() && request.resource.data.ownerUid == request.auth.uid;
+      allow read: if isUtUser(); // public-readable among UT users
+      allow update, delete: if isUtUser() && resource.data.ownerUid == request.auth.uid
+        && (request.resource.data.ownerUid == resource.data.ownerUid); // prevent owner change
+
+      // subcollections allowed only for UT users; more granular rules later
+      match /{sub=**} {
+        allow read, write: if isUtUser();
+      }
+    }
+
+    // appointments baseline
+    match /appointments/{appointmentId} {
+      allow create: if isUtUser() && request.resource.data.consumerUid == request.auth.uid
+        && request.resource.data.status == 'pending';
+
+      allow read: if isUtUser() && (
+        request.auth.uid == resource.data.consumerUid ||
+        // owner of providerProfile
+        get(/databases/$(database)/documents/providerProfiles/$(resource.data.providerProfileId)).data.ownerUid == request.auth.uid
+      );
+
+      allow update: if isUtUser() && (
+        // provider owner can update status
+        (get(/databases/$(database)/documents/providerProfiles/$(resource.data.providerProfileId)).data.ownerUid == request.auth.uid)
+        ||
+        // consumer can cancel
+        (request.auth.uid == resource.data.consumerUid && request.resource.data.status == 'cancelled')
+      );
+    }
+
+    // default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
