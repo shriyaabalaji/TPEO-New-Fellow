@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'auth_controller.dart';
-import '../../core/auth/auth_service.dart';
 import '../../core/auth/ut_email_gate.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
-import '../profile/profile_page.dart';
+import '../../core/firebase_init.dart';
+import '../onboarding/onboarding_provider.dart';
+
+final _loginRedirectDoneProvider = StateProvider<bool>((ref) => false);
 
 class LoginPage extends ConsumerWidget {
   const LoginPage({super.key});
@@ -13,36 +15,67 @@ class LoginPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authServiceProvider);
     final authState = ref.watch(authStateProvider);
+    final onboardingDone = ref.watch(onboardingDoneProvider);
+    final redirectDone = ref.watch(_loginRedirectDoneProvider);
+
+    ref.listen(authStateProvider, (prev, next) {
+      if (next.valueOrNull == null) ref.read(_loginRedirectDoneProvider.notifier).state = false;
+    });
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Campus Connect')),
+      backgroundColor: Colors.white,
+      appBar: AppBar(title: const Text('UTServe'), backgroundColor: Colors.white),
       body: authState.when(
         data: (user) {
-          if (user != null) {
-            // basic gate: ensure email verified & UT domain
+            if (user != null) {
             final email = user.email;
             if (!(user.emailVerified && isUtEmail(email))) {
-              // sign out and show error
-              auth.signOut();
+              auth?.signOut();
               return Center(child: Text('You must sign in with a verified @utexas.edu account.'));
             }
-            // navigate to profile
-            Future.microtask(() => Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const ProfilePage())));
-            return const SizedBox.shrink();
+            if (!redirectDone && onboardingDone.hasValue) {
+              ref.read(_loginRedirectDoneProvider.notifier).state = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) context.go(onboardingDone.value! ? '/find' : '/onboarding/role');
+              });
+            }
+            return const Center(child: CircularProgressIndicator());
           }
           return Center(
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.login),
-              label: const Text('Continue with Google'),
-              onPressed: () async {
-                try {
-                  final cred = await auth.signInWithGoogle();
-                  if (cred == null) return;
-                  final fbUser = cred.user;
-                  if (fbUser == null) return;
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-in failed: $e')));
-                }
-              },
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text('UTServe', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('UT-only services', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  label: const Text('Continue with Google'),
+                  onPressed: () async {
+                    if (!firebaseInitialized) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Firebase not configured. Run: flutterfire configure')),
+                        );
+                      }
+                      return;
+                    }
+                    try {
+                      final cred = await auth?.signInWithGoogle();
+                      if (cred == null) return;
+                      if (cred.user == null) return;
+                    } catch (e) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-in failed: $e')));
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () => context.go('/onboarding/role'),
+                  child: const Text('Skip (demo)'),
+                ),
+              ],
             ),
           );
         },

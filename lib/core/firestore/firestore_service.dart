@@ -47,7 +47,7 @@ class FirestoreService {
     if (userDoc.exists) {
       final existing = userDoc.data();
       final active = existing?['activeProviderProfileId'];
-      final updates = {
+      final updates = <String, dynamic>{
         'providerProfileIds': FieldValue.arrayUnion([ref.id]),
         'updatedAt': FieldValue.serverTimestamp(),
       };

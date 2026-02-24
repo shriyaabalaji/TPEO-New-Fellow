@@ -1,10 +1,19 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'core/firebase_init.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  try {
+    await Firebase.initializeApp();
+  } catch (_) {
+    firebaseInitialized = false;
+    if (kDebugMode) {
+      debugPrint('Firebase not configured. Run: flutterfire configure');
+    }
+  }
   runApp(const ProviderScope(child: MyApp()));
 }
