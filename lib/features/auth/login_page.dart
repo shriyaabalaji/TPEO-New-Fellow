@@ -5,6 +5,8 @@ import 'auth_controller.dart';
 import '../../core/auth/ut_email_gate.dart';
 import '../../core/firebase_init.dart';
 import '../onboarding/onboarding_provider.dart';
+import 'effective_user_provider.dart';
+import '../profile/provider_account_controller.dart';
 
 final _loginRedirectDoneProvider = StateProvider<bool>((ref) => false);
 
@@ -24,7 +26,7 @@ class LoginPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text('UTServe'), backgroundColor: Colors.white),
+      appBar: AppBar(title: const Text("Hook'd Up"), backgroundColor: Colors.white),
       body: authState.when(
         data: (user) {
             if (user != null) {
@@ -45,7 +47,7 @@ class LoginPage extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('UTServe', style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+                Text("Hook'd Up", style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text('UT-only services', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
                 const SizedBox(height: 32),
@@ -64,7 +66,18 @@ class LoginPage extends ConsumerWidget {
                     try {
                       final cred = await auth?.signInWithGoogle();
                       if (cred == null) return;
-                      if (cred.user == null) return;
+                      final user = cred.user;
+                      if (user == null) return;
+                      final fs = ref.read(firestoreServiceProvider);
+                      if (fs != null) {
+                        try {
+                          await fs.upsertUserProfile(user);
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Profile sync failed: $e')));
+                          }
+                        }
+                      }
                     } catch (e) {
                       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sign-in failed: $e')));
                     }
@@ -72,7 +85,10 @@ class LoginPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 TextButton(
-                  onPressed: () => context.go('/onboarding/role'),
+                  onPressed: () async {
+                    await ref.read(demoModeProvider.notifier).enterDemo();
+                    if (context.mounted) context.go('/onboarding/role');
+                  },
                   child: const Text('Skip (demo)'),
                 ),
               ],

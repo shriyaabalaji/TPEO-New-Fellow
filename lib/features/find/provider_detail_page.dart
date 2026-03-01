@@ -1,19 +1,120 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/provider_profile.dart';
+import '../../models/service.dart';
+import '../auth/effective_user_provider.dart';
+import '../profile/provider_account_controller.dart';
+import 'mock_providers.dart';
 
-class ProviderDetailPage extends StatelessWidget {
+class ProviderDetailPage extends ConsumerWidget {
   const ProviderDetailPage({super.key, required this.providerId});
 
   final String providerId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final effectiveUser = ref.watch(effectiveUserProvider);
+    final fs = ref.watch(firestoreServiceProvider);
+
+    if (providerId == 'me') {
+      return effectiveUser.when(
+        data: (appUser) {
+          if (appUser == null || appUser.isDemo) {
+            return Scaffold(
+              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+              body: const Center(child: Text('Sign in to view your provider profile.')),
+            );
+          }
+          if (fs == null) {
+            return Scaffold(
+              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+              body: const Center(child: Text('Firebase not configured.')),
+            );
+          }
+          return StreamBuilder(
+            stream: fs.streamUserProfile(appUser.uid),
+            builder: (context, userSnap) {
+              final userProfile = userSnap.data;
+              final activeId = userProfile?.activeProviderProfileId;
+              if (activeId == null || activeId.isEmpty) {
+                return Scaffold(
+                  appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+                  body: const Center(child: Text('No provider profile yet. Create one from Profile.')),
+                );
+              }
+              return StreamBuilder<ProviderProfile?>(
+                stream: fs.streamProviderProfile(activeId),
+                builder: (context, profileSnap) {
+                  final profile = profileSnap.data;
+                  if (profile == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+                  return _ProviderDetailBody(profile: profile, effectiveProfileId: activeId);
+                },
+              );
+            },
+          );
+        },
+        loading: () => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator())),
+        error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: Center(child: Text('Error: $e'))),
+      );
+    }
+
+    if (fs == null) {
+      final mock = mockProviderById(providerId);
+      return _ProviderDetailBody(
+        profile: mock != null
+            ? ProviderProfile(providerProfileId: mock.id, ownerUid: '', businessName: mock.businessName, tags: mock.tags, ratingAvg: mock.rating, reviewCount: mock.reviewCount)
+            : null,
+        effectiveProfileId: providerId,
+      );
+    }
+
+    return StreamBuilder<ProviderProfile?>(
+      stream: fs.streamProviderProfile(providerId),
+      builder: (context, snap) {
+        final profile = snap.data;
+        if (snap.connectionState == ConnectionState.waiting && profile == null) {
+          return Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator()));
+        }
+        if (profile == null && !snap.hasData) {
+          final mock = mockProviderById(providerId);
+          return _ProviderDetailBody(
+            profile: mock != null
+                ? ProviderProfile(providerProfileId: mock.id, ownerUid: '', businessName: mock.businessName, tags: mock.tags, ratingAvg: mock.rating, reviewCount: mock.reviewCount)
+                : null,
+            effectiveProfileId: providerId,
+          );
+        }
+        return _ProviderDetailBody(profile: profile, effectiveProfileId: providerId);
+      },
+    );
+  }
+}
+
+class _ProviderDetailBody extends ConsumerWidget {
+  const _ProviderDetailBody({required this.profile, required this.effectiveProfileId});
+
+  final ProviderProfile? profile;
+  final String effectiveProfileId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (profile == null) {
+      return Scaffold(
+        appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+        body: const Center(child: Text('Provider not found')),
+      );
+    }
+    final p = profile!;
+    final name = p.businessName;
+    final rating = p.ratingAvg;
+    final reviewCount = p.reviewCount;
+    final tags = p.tags;
+    final fs = ref.watch(firestoreServiceProvider);
+
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
         title: const Text('Provider'),
       ),
       body: SingleChildScrollView(
@@ -31,32 +132,25 @@ class ProviderDetailPage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Business $providerId', style: Theme.of(context).textTheme.titleMedium),
+                        Text(name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.primary),
+                            Icon(Icons.location_on_outlined, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
                             const SizedBox(width: 4),
-                            const Text('5.0 (37)'),
+                            Text('Austin, TX', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8))),
                           ],
+                        ),
+                        const SizedBox(height: 4),
+                        Wrap(
+                          spacing: 6,
+                          children: tags.map((t) => Chip(label: Text(t), materialTapTargetSize: MaterialTapTargetSize.shrinkWrap, padding: EdgeInsets.zero)).toList(),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {}),
+                  _FavoriteButton(providerProfileId: effectiveProfileId),
                 ],
-              ),
-            ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Text('Service Title', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: ['\$', '\$\$', '\$\$\$'].map((p) => Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: OutlinedButton(onPressed: () {}, child: Text(p)),
-                )).toList(),
               ),
             ),
             Padding(
@@ -64,9 +158,29 @@ class ProviderDetailPage extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.push('/booking?providerId=$providerId'),
+                  onPressed: () => context.push('/booking?providerId=$effectiveProfileId'),
                   child: const Text('Book Now'),
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Icon(Icons.star, size: 18, color: Theme.of(context).colorScheme.primary),
+                  const SizedBox(width: 4),
+                  Text('$rating ($reviewCount reviews)', style: Theme.of(context).textTheme.titleSmall),
+                  const SizedBox(width: 12),
+                  ...['\$', '\$\$', '\$\$\$'].map((p) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: OutlinedButton(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10), minimumSize: Size.zero),
+                          onPressed: () {},
+                          child: Text(p),
+                        ),
+                      )),
+                ],
               ),
             ),
             const SizedBox(height: 24),
@@ -107,11 +221,111 @@ class ProviderDetailPage extends StatelessWidget {
                 ],
               ),
             ),
-            const ListTile(title: Text('Review placeholder 1'), subtitle: Text('Great service!')),
-            const ListTile(title: Text('Review placeholder 2'), subtitle: Text('Would book again.')),
+            const ListTile(title: Text('Great service!'), subtitle: Text('Would book again.')),
+            const ListTile(title: Text('On time and professional'), subtitle: Text('Highly recommend.')),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('About', style: Theme.of(context).textTheme.titleSmall),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                'Quality service for UT students. Book a slot that works for you.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                    ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('Services offered', style: Theme.of(context).textTheme.titleSmall),
+            ),
+            const SizedBox(height: 8),
+            fs == null
+                ? _buildServicesList(context, effectiveProfileId, null)
+                : StreamBuilder<List<Service>>(
+                    stream: fs.streamServices(effectiveProfileId),
+                    builder: (context, snap) => _buildServicesList(context, effectiveProfileId, snap.data),
+                  ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildServicesList(BuildContext context, String providerId, List<Service>? services) {
+    if (services != null && services.isNotEmpty) {
+      return Column(
+        children: services.map((s) {
+          final dur = s.durationMinutes >= 60 ? '${s.durationMinutes ~/ 60} hr' : '${s.durationMinutes} min';
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: Text(s.name),
+                subtitle: Text('${s.price} · $dur'),
+                onTap: () {},
+              ),
+            ),
+          );
+        }).toList(),
+      );
+    }
+    final mock = mockServicesByProvider[providerId] ?? [const MockService('Service', r'$20', '1 hr')];
+    return Column(
+      children: mock.map((s) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Card(
+              child: ListTile(
+                leading: const Icon(Icons.check_circle_outline),
+                title: Text(s.name),
+                subtitle: Text('${s.price} · ${s.duration}'),
+                onTap: () {},
+              ),
+            ),
+          )).toList(),
+    );
+  }
+}
+
+class _FavoriteButton extends ConsumerWidget {
+  const _FavoriteButton({required this.providerProfileId});
+
+  final String providerProfileId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final appUser = ref.watch(effectiveUserProvider).valueOrNull;
+    final fs = ref.watch(firestoreServiceProvider);
+    if (appUser == null || appUser.isDemo || fs == null) {
+      return IconButton(icon: const Icon(Icons.favorite_border), onPressed: () {});
+    }
+    return StreamBuilder(
+      stream: fs.streamUserProfile(appUser.uid),
+      builder: (context, snap) {
+        final favoriteIds = snap.data?.favoriteProviderIds ?? [];
+        final isFav = favoriteIds.contains(providerProfileId);
+        return IconButton(
+          icon: Icon(isFav ? Icons.favorite : Icons.favorite_border, color: isFav ? Colors.red : null),
+          onPressed: () async {
+            try {
+              if (isFav) {
+                await fs.removeFavorite(appUser.uid, providerProfileId);
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+              } else {
+                await fs.addFavorite(appUser.uid, providerProfileId);
+                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to favorites')));
+              }
+            } catch (e) {
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+            }
+          },
+        );
+      },
     );
   }
 }

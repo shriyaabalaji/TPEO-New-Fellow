@@ -9,10 +9,12 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
     await Firebase.initializeApp();
-  } catch (_) {
+    firebaseInitialized = true;
+  } catch (e) {
     firebaseInitialized = false;
     if (kDebugMode) {
-      debugPrint('Firebase not configured. Run: flutterfire configure');
+      debugPrint('Firebase not configured: $e');
+      debugPrint('Run: flutterfire configure');
     }
   }
   runApp(const ProviderScope(child: MyApp()));

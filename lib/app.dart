@@ -13,6 +13,12 @@ import 'features/onboarding/username_screen.dart';
 import 'features/onboarding/interests_screen.dart';
 import 'features/find/provider_detail_page.dart';
 import 'features/booking/booking_page.dart';
+import 'features/profile/availability_page.dart';
+import 'features/profile/my_services_page.dart';
+import 'features/profile/account_details_page.dart';
+import 'features/profile/favorites_page.dart';
+import 'features/profile/notifications_page.dart';
+import 'features/profile/public_profile_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -69,6 +75,12 @@ final _router = GoRouter(
           return BookingPage(providerId: id);
         },
       ),
+      GoRoute(path: '/profile/availability', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AvailabilityPage()),
+      GoRoute(path: '/profile/my-services', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const MyServicesPage()),
+      GoRoute(path: '/profile/account', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AccountDetailsPage()),
+      GoRoute(path: '/profile/favorites', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const FavoritesPage()),
+      GoRoute(path: '/profile/notifications', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const NotificationsPage()),
+      GoRoute(path: '/profile/public', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const PublicProfilePage()),
     ],
   );
 
@@ -78,7 +90,7 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'UTServe',
+      title: "Hook'd Up",
       theme: appTheme,
       routerConfig: _router,
     );

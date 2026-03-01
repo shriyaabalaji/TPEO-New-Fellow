@@ -9,13 +9,24 @@ class RoleScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Which option best describes you?')),
+      appBar: AppBar(
+        title: const Text('Getting Started'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/login'),
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Spacer(),
+            const SizedBox(height: 24),
+            Text(
+              'Which option best describes you?',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 24),
             _RoleButton(
               label: 'Service Provider',
               onTap: () {
@@ -37,7 +48,7 @@ class RoleScreen extends ConsumerWidget {
                 ref.read(onboardingRoleProvider.notifier).state = 'both';
                 context.go('/onboarding/name');
               },
-              child: const Text('Both'),
+              child: const Text('Continue'),
             ),
           ],
         ),

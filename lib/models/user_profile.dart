@@ -7,6 +7,7 @@ class UserProfile {
   final DateTime? updatedAt;
   final String? activeProviderProfileId;
   final List<String>? providerProfileIds;
+  final List<String>? favoriteProviderIds;
 
   UserProfile({
     required this.uid,
@@ -17,6 +18,7 @@ class UserProfile {
     this.updatedAt,
     this.activeProviderProfileId,
     this.providerProfileIds,
+    this.favoriteProviderIds,
   });
 
   Map<String, dynamic> toMap() => {
@@ -28,6 +30,7 @@ class UserProfile {
         'updatedAt': updatedAt,
         'activeProviderProfileId': activeProviderProfileId,
         'providerProfileIds': providerProfileIds ?? [],
+        'favoriteProviderIds': favoriteProviderIds ?? [],
       };
 
   factory UserProfile.fromMap(Map<String, dynamic> m) => UserProfile(
@@ -39,5 +42,6 @@ class UserProfile {
         updatedAt: m['updatedAt'] is DateTime ? m['updatedAt'] as DateTime : null,
         activeProviderProfileId: m['activeProviderProfileId'] as String?,
         providerProfileIds: (m['providerProfileIds'] as List<dynamic>?)?.map((e) => e as String).toList(),
+        favoriteProviderIds: (m['favoriteProviderIds'] as List<dynamic>?)?.map((e) => e as String).toList(),
       );
 }

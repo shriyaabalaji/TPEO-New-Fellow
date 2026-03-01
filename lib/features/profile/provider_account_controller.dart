@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/firebase_init.dart';
 import '../../core/firestore/firestore_service.dart';
-import '../../core/firestore/paths.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
-final firestoreServiceProvider = Provider((ref) => FirestoreService());
+/// Only available when Firebase has been initialized (e.g. after Firebase.initializeApp() in main).
+final firestoreServiceProvider = Provider<FirestoreService?>((ref) {
+  return firebaseInitialized ? FirestoreService() : null;
+});
 
 class ProviderAccountController {
   final FirestoreService _fs;
