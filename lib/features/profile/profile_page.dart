@@ -120,7 +120,6 @@ class ProfilePage extends ConsumerWidget {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    const Text('551k followers · 33 following'),
                   ],
                 ],
               ),

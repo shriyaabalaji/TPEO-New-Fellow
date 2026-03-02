@@ -47,7 +47,7 @@ class MainShell extends ConsumerWidget {
       body: child,
       extendBody: true,
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(48, 12, 48, 12),
+        padding: const EdgeInsets.fromLTRB(48, 12, 48, 4),
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -64,6 +64,7 @@ class MainShell extends ConsumerWidget {
             ),
             child: SafeArea(
               top: false,
+              bottom: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
                 child: Row(
