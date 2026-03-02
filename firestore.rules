@@ -5,7 +5,7 @@ service cloud.firestore {
     function isUtUser() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.matches('^.*@my\\.utexas\\.edu$');
+        && request.auth.token.email.matches('^.*@\\.utexas\\.edu$');
     }
 
     // users collection
