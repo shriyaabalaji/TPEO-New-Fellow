@@ -13,6 +13,12 @@ Future<void> setOnboardingDone() async {
   await prefs.setBool(_keyOnboardingDone, true);
 }
 
+/// Clears the onboarding-done flag so the user will see onboarding again on next login.
+Future<void> clearOnboardingDone() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.remove(_keyOnboardingDone);
+}
+
 final onboardingRoleProvider = StateProvider<String?>((ref) => null);
 final onboardingFirstNameProvider = StateProvider<String>((ref) => '');
 final onboardingLastNameProvider = StateProvider<String>((ref) => '');

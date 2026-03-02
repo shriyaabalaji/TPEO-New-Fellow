@@ -5,7 +5,7 @@ service cloud.firestore {
     function isUtUser() {
       return request.auth != null
         && request.auth.token.email_verified == true
-        && request.auth.token.email.matches('^.*@utexas\\.edu$');
+        && request.auth.token.email.matches('^.*@my\\.utexas\\.edu$');
     }
 
     // users collection
@@ -17,8 +17,9 @@ service cloud.firestore {
     match /providerProfiles/{providerId} {
       allow create: if isUtUser() && request.resource.data.ownerUid == request.auth.uid;
       allow read: if isUtUser(); // public-readable among UT users
-      allow update, delete: if isUtUser() && resource.data.ownerUid == request.auth.uid
+      allow update: if isUtUser() && resource.data.ownerUid == request.auth.uid
         && (request.resource.data.ownerUid == resource.data.ownerUid); // prevent owner change
+      allow delete: if isUtUser() && resource.data.ownerUid == request.auth.uid;
 
       // subcollections allowed only for UT users; more granular rules later
       match /{sub=**} {

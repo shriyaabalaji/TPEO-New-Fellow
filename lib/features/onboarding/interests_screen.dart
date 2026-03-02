@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../auth/auth_controller.dart';
+import '../profile/provider_account_controller.dart';
 import 'onboarding_provider.dart';
 
 const _interestOptions = [
@@ -64,6 +66,33 @@ class InterestsScreen extends ConsumerWidget {
             const Spacer(),
             ElevatedButton(
               onPressed: () async {
+                final uid = ref.read(authStateProvider).valueOrNull?.uid;
+                final fs = ref.read(firestoreServiceProvider);
+                final auth = ref.read(authServiceProvider);
+                if (uid != null && fs != null) {
+                  await auth?.reloadUserAndRefreshToken();
+                  final first = ref.read(onboardingFirstNameProvider).trim();
+                  final last = ref.read(onboardingLastNameProvider).trim();
+                  final displayName = '$first $last'.trim();
+                  final username = ref.read(onboardingUsernameProvider).trim();
+                  final role = ref.read(onboardingRoleProvider);
+                  try {
+                    await fs.updateUserProfile(
+                      uid: uid,
+                      displayName: displayName.isNotEmpty ? displayName : null,
+                      username: username.isNotEmpty ? username : null,
+                      onboardingRole: role,
+                    );
+                  } catch (e) {
+                    if (context.mounted) {
+                      final msg = e.toString().toLowerCase().contains('permission') || e.toString().contains('PERMISSION_DENIED')
+                          ? 'Permission denied. Make sure your email is verified and you\'re signed in with @my.utexas.edu. Try signing out and back in.'
+                          : 'Failed to save profile: $e';
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+                    }
+                    return;
+                  }
+                }
                 await setOnboardingDone();
                 if (context.mounted) context.go('/find');
               },

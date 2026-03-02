@@ -1,0 +1,6 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter":{"platforms":{"ios":{"default":{"projectId":"tpeo-nf-project","appId":"1:904562520941:ios:5047bd54c55e5a034e6064","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"tpeo-nf-project","appId":"1:904562520941:ios:5047bd54c55e5a034e6064","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"tpeo-nf-project","configurations":{"ios":"1:904562520941:ios:5047bd54c55e5a034e6064","macos":"1:904562520941:ios:5047bd54c55e5a034e6064"}}}}}
+}

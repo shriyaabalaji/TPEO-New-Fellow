@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/firestore/firestore_service.dart';
+import '../../models/provider_profile.dart';
+import '../../models/user_profile.dart';
 import '../auth/auth_controller.dart';
 import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
@@ -19,17 +22,30 @@ class ProfilePage extends ConsumerWidget {
       data: (appUser) {
         if (appUser == null) return const Scaffold(body: Center(child: Text('Not signed in')));
         if (appUser.isDemo) {
-          return _buildProfileBody(context, ref, appUser, [], false);
+          return _buildProfileBody(context, ref, appUser, null, [], false);
         }
         if (fs == null) {
-          return _buildProfileBody(context, ref, appUser, [], false);
+          return _buildProfileBody(context, ref, appUser, null, [], false);
         }
-        return StreamBuilder<List<dynamic>>(
-          stream: fs.streamProviderProfilesByOwner(appUser.uid),
-          builder: (context, snap) {
-            final providerList = snap.data ?? [];
-            final hasProviderProfile = providerList.isNotEmpty;
-            return _buildProfileBody(context, ref, appUser, providerList, hasProviderProfile);
+        return StreamBuilder<UserProfile>(
+          stream: fs.streamUserProfile(appUser.uid),
+          builder: (context, userSnap) {
+            final userProfile = userSnap.data;
+            return StreamBuilder<List<ProviderProfile>>(
+              stream: fs.streamProviderProfilesByOwner(appUser.uid),
+              builder: (context, providerSnap) {
+                final providerList = providerSnap.data ?? [];
+                final hasProviderProfile = providerList.isNotEmpty;
+                final role = userProfile?.onboardingRole;
+                final defaultToProvider = (role == 'provider' || role == 'both') && !hasProviderProfile;
+                if (defaultToProvider && !ref.read(viewingAsProviderProvider)) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    ref.read(viewingAsProviderProvider.notifier).state = true;
+                  });
+                }
+                return _buildProfileBody(context, ref, appUser, userProfile, providerList, hasProviderProfile);
+              },
+            );
           },
         );
       },
@@ -42,10 +58,14 @@ class ProfilePage extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AppUser user,
-    List<dynamic> providerList,
+    UserProfile? userProfile,
+    List<ProviderProfile> providerList,
     bool hasProviderProfile,
   ) {
     final viewingAsProvider = ref.watch(viewingAsProviderProvider);
+    final displayName = userProfile?.displayName ?? user.displayName;
+    final photoUrl = userProfile?.photoUrl ?? user.photoUrl;
+    final nameForAvatar = displayName.isNotEmpty ? displayName : '?';
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -69,15 +89,15 @@ class ProfilePage extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 40,
-                  backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-                  child: user.photoUrl == null ? Text((user.displayName.isNotEmpty ? user.displayName : '?').substring(0, 1).toUpperCase()) : null,
+                  backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                  child: (photoUrl == null || photoUrl.isEmpty) ? Text(nameForAvatar.substring(0, 1).toUpperCase()) : null,
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(user.displayName.isNotEmpty ? user.displayName : user.email, style: Theme.of(context).textTheme.titleLarge),
+                      Text(displayName.isNotEmpty ? displayName : 'User', style: Theme.of(context).textTheme.titleLarge),
                       if (viewingAsProvider) ...[
                         const SizedBox(height: 4),
                         Row(
@@ -228,7 +248,7 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildProviderContent(BuildContext context, WidgetRef ref, AppUser user, List<dynamic> providerList, bool hasProviderProfile) {
+  Widget _buildProviderContent(BuildContext context, WidgetRef ref, AppUser user, List<ProviderProfile> providerList, bool hasProviderProfile) {
     if (user.isDemo) {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -286,7 +306,7 @@ class ProfilePage extends ConsumerWidget {
                     title: Text(p.businessName),
                     subtitle: Text(p.providerProfileId),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
+                    onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
                   )),
               OutlinedButton(
                 onPressed: () => _showCreateProviderDialog(context, ref),
@@ -334,17 +354,193 @@ class ProfilePage extends ConsumerWidget {
         }
         return;
       }
+      await ref.read(authServiceProvider)?.reloadUser();
       final name = res['name'] as String? ?? '';
       final tags = (res['tags'] as String? ?? '').split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
       try {
-        await fs.createProviderProfile(ownerUid: firebaseUser.uid, businessName: name, tags: tags);
+        final id = await fs.createProviderProfile(ownerUid: firebaseUser.uid, businessName: name, tags: tags);
+        await fs.setActiveProviderProfile(uid: firebaseUser.uid, providerProfileId: id);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Provider created')));
           ref.read(viewingAsProviderProvider.notifier).state = true;
         }
       } catch (e) {
-        if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Create failed: $e')));
+        if (context.mounted) {
+          final msg = e.toString().toLowerCase().contains('permission') || e.toString().contains('PERMISSION_DENIED')
+              ? 'Permission denied. Make sure your email is verified and you\'re signed in with @my.utexas.edu. Try signing out and back in.'
+              : 'Create failed: $e';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        }
       }
     });
+  }
+
+  void _showProviderOptions(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    ProviderProfile p,
+    FirestoreService fs,
+  ) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditProviderDialog(context, ref, uid, p, fs);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.check_circle_outline),
+              title: const Text('Set as active'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                try {
+                  await fs.setActiveProviderProfile(uid: uid, providerProfileId: p.providerProfileId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Active profile updated')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed: $e')),
+                    );
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              title: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _confirmDeleteProvider(context, ref, uid, p, fs);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditProviderDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    ProviderProfile p,
+    FirestoreService fs,
+  ) {
+    final nameCtrl = TextEditingController(text: p.businessName);
+    final tagsCtrl = TextEditingController(text: p.tags.join(', '));
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit provider'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(labelText: 'Business name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: tagsCtrl,
+              decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              final tags = tagsCtrl.text
+                  .split(',')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+              if (name.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await fs.updateProviderProfile(
+                  providerProfileId: p.providerProfileId,
+                  ownerUid: uid,
+                  businessName: name,
+                  tags: tags,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Provider updated')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteProvider(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    ProviderProfile p,
+    FirestoreService fs,
+  ) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete provider?'),
+        content: Text(
+          'This will remove "${p.businessName}". Services and availability for this profile will be lost. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await fs.deleteProviderProfile(
+                  providerProfileId: p.providerProfileId,
+                  ownerUid: uid,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Provider deleted')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed: $e')),
+                  );
+                }
+              }
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }

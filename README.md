@@ -42,6 +42,7 @@ flutter run -d ios
 ```
 
 Notes
-- You must configure the OAuth client in Firebase console for iOS Google sign-in and provide the reversed client id in Info.plist if needed.
-- This scaffold enforces UT-only sign-in in the app and includes Firestore security rules that also enforce UT emails and email_verified.
+- Sign-in uses **email/password** (Firebase Authentication). The app and Firestore rules require **@my.utexas.edu** addresses only.
+- In [Firebase Console](https://console.firebase.google.com) → **Authentication** → **Sign-in method** → enable **Email/Password**.
+- New users must verify their email (link sent on sign-up) before using the app.
 # TPEO-New-Fellow

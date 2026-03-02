@@ -268,7 +268,18 @@ class _ProviderDetailBody extends ConsumerWidget {
                 leading: const Icon(Icons.check_circle_outline),
                 title: Text(s.name),
                 subtitle: Text('${s.price} · $dur'),
-                onTap: () {},
+                onTap: () {
+                  final uri = Uri(
+                    path: '/booking',
+                    queryParameters: {
+                      'providerId': providerId,
+                      'serviceId': s.serviceId,
+                      'serviceName': s.name,
+                      'price': s.price,
+                    },
+                  );
+                  context.push(uri.toString());
+                },
               ),
             ),
           );
@@ -284,7 +295,7 @@ class _ProviderDetailBody extends ConsumerWidget {
                 leading: const Icon(Icons.check_circle_outline),
                 title: Text(s.name),
                 subtitle: Text('${s.price} · ${s.duration}'),
-                onTap: () {},
+                onTap: () => context.push('/booking?providerId=$providerId'),
               ),
             ),
           )).toList(),

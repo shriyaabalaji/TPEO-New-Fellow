@@ -52,7 +52,7 @@ class DemoModeNotifier extends StateNotifier<bool> {
     final prefs = await _prefs();
     await prefs.setBool(_keyDemoMode, true);
     await prefs.setString(_keyDemoDisplayName, 'Demo User');
-    await prefs.setString(_keyDemoEmail, 'demo@utexas.edu');
+    await prefs.setString(_keyDemoEmail, 'demo@my.utexas.edu');
     state = true;
   }
 
@@ -77,7 +77,7 @@ final effectiveUserProvider = FutureProvider<AppUser?>((ref) async {
   if (!isDemo) return null;
   final prefs = await SharedPreferences.getInstance();
   final name = prefs.getString(_keyDemoDisplayName) ?? 'Demo User';
-  final email = prefs.getString(_keyDemoEmail) ?? 'demo@utexas.edu';
+  final email = prefs.getString(_keyDemoEmail) ?? 'demo@my.utexas.edu';
   return AppUser(uid: demoUid, displayName: name, email: email, photoUrl: null, isDemo: true);
 });
 

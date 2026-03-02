@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'core/ui/app_theme.dart';
 import 'features/auth/login_page.dart';
+import 'features/auth/auth_redirect_notifier.dart';
 import 'features/shell/main_shell.dart';
 import 'features/find/find_page.dart';
 import 'features/appointments/appointments_page.dart';
@@ -22,9 +23,19 @@ import 'features/profile/public_profile_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-final _router = GoRouter(
+final goRouterProvider = Provider<GoRouter>((ref) {
+  final authRefresh = ref.watch(authRedirectNotifierProvider);
+  return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/login',
+    refreshListenable: authRefresh,
+    redirect: (context, state) {
+      if (authRefresh.shouldRedirectToLogin) {
+        final path = state.matchedLocation;
+        if (path != '/login') return '/login';
+      }
+      return null;
+    },
     routes: [
       GoRoute(
         path: '/login',
@@ -72,7 +83,12 @@ final _router = GoRouter(
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) {
           final id = state.uri.queryParameters['providerId'] ?? '';
-          return BookingPage(providerId: id);
+          return BookingPage(
+            providerId: id,
+            initialServiceId: state.uri.queryParameters['serviceId'],
+            initialServiceName: state.uri.queryParameters['serviceName'],
+            initialPrice: state.uri.queryParameters['price'],
+          );
         },
       ),
       GoRoute(path: '/profile/availability', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AvailabilityPage()),
@@ -83,16 +99,18 @@ final _router = GoRouter(
       GoRoute(path: '/profile/public', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const PublicProfilePage()),
     ],
   );
+});
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
       title: "Hook'd Up",
       theme: appTheme,
-      routerConfig: _router,
+      routerConfig: router,
     );
   }
 }

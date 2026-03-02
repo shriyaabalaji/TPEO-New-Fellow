@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyDAm-pIIa1NdsNCUAxVU1kfOwm_zW2diJU</string>
+	<key>GCM_SENDER_ID</key>
+	<string>904562520941</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.tpeoNewFellow</string>
+	<key>PROJECT_ID</key>
+	<string>tpeo-nf-project</string>
+	<key>STORAGE_BUCKET</key>
+	<string>tpeo-nf-project.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:904562520941:ios:5047bd54c55e5a034e6064</string>
+</dict>
+</plist>
