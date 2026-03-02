@@ -34,6 +34,7 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   String _selectedPrice = r'$25';
   int _selectedWeekIndex = 0;
   late PageController _bookingWeekPageController;
+  DateTime? _selectedDate;
 
   static const _dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -219,7 +220,17 @@ class _BookingPageState extends ConsumerState<BookingPage> {
             final selectedWeekStart = _selectedWeekIndex < weekStarts.length
                 ? weekStarts[_selectedWeekIndex]
                 : weekStarts.first;
-            final displayMonth = '${_monthNames[selectedWeekStart.month - 1]} ${selectedWeekStart.year}';
+
+            // Build list of distinct months covered by available weeks for month dropdown.
+            final months = <DateTime>[];
+            for (final ws in weekStarts) {
+              final m = DateTime(ws.year, ws.month, 1);
+              if (months.isEmpty || !months.last.isAtSameMomentAs(m)) {
+                months.add(m);
+              }
+            }
+            final currentMonth = DateTime(selectedWeekStart.year, selectedWeekStart.month, 1);
+
             final optionsForWeek = expandSlotsToTimeOptionsWithDates(slots, selectedWeekStart, 1);
             if (optionsForWeek.isEmpty && expandSlotsToTimeOptions(slots).isEmpty) {
               return Padding(
@@ -247,18 +258,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 ),
               );
             }
-            final byDateLabel = <String, List<TimeOption>>{};
-            for (final o in optionsForWeek) {
-              final key = o.dateLabel ?? o.dayName;
-              byDateLabel.putIfAbsent(key, () => []).add(o);
+            // Determine which calendar date is currently selected.
+            final effectiveSelectedDate = _selectedDate;
+
+            // Time options for the selected date, if any.
+            final optionsForSelectedDate = <TimeOption>[];
+            if (effectiveSelectedDate != null) {
+              for (final o in optionsForWeek) {
+                final d = o.date;
+                if (d == null) continue;
+                if (d.year == effectiveSelectedDate.year &&
+                    d.month == effectiveSelectedDate.month &&
+                    d.day == effectiveSelectedDate.day) {
+                  optionsForSelectedDate.add(o);
+                }
+              }
             }
-            final dateOrder = byDateLabel.keys.toList()..sort((a, b) {
-              final oa = byDateLabel[a]!.first;
-              final ob = byDateLabel[b]!.first;
-              final da = oa.date ?? DateTime.now();
-              final db = ob.date ?? DateTime.now();
-              return da.compareTo(db);
-            });
+
             return Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -274,11 +290,70 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    displayMonth,
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      DropdownButton<DateTime>(
+                        value: currentMonth,
+                        underline: const SizedBox(),
+                        items: months
+                            .map(
+                              (m) => DropdownMenuItem(
+                                value: m,
+                                child: Text('${_monthNames[m.month - 1]} ${m.year}'),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (d) {
+                          if (d == null) return;
+                          final idx = weekStarts.indexWhere((ws) => ws.year == d.year && ws.month == d.month);
+                          if (idx != -1) {
+                            setState(() {
+                              _selectedWeekIndex = idx;
+                            });
+                            if (_bookingWeekPageController.hasClients) {
+                              _bookingWeekPageController.jumpToPage(idx);
+                            }
+                          }
+                        },
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.chevron_left),
+                            onPressed: _selectedWeekIndex > 0
+                                ? () {
+                                    final newIndex = _selectedWeekIndex - 1;
+                                    setState(() => _selectedWeekIndex = newIndex);
+                                    if (_bookingWeekPageController.hasClients) {
+                                      _bookingWeekPageController.animateToPage(
+                                        newIndex,
+                                        duration: const Duration(milliseconds: 200),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  }
+                                : null,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.chevron_right),
+                            onPressed: _selectedWeekIndex < weekStarts.length - 1
+                                ? () {
+                                    final newIndex = _selectedWeekIndex + 1;
+                                    setState(() => _selectedWeekIndex = newIndex);
+                                    if (_bookingWeekPageController.hasClients) {
+                                      _bookingWeekPageController.animateToPage(
+                                        newIndex,
+                                        duration: const Duration(milliseconds: 200),
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -298,25 +373,59 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: List.generate(7, (i) {
                             final date = weekStart.add(Duration(days: i == 0 ? -1 : i - 1));
+                            final dayHasSlots = optionsForWeek.any((o) {
+                              final d = o.date;
+                              if (d == null) return false;
+                              return d.year == date.year && d.month == date.month && d.day == date.day;
+                            });
+                            final isSelectedDate = effectiveSelectedDate != null &&
+                                effectiveSelectedDate.year == date.year &&
+                                effectiveSelectedDate.month == date.month &&
+                                effectiveSelectedDate.day == date.day;
+                            final circleColor = isSelectedDate
+                                ? const Color(0xFFCC5500) // dark orange for selected date
+                                : dayHasSlots
+                                    ? const Color(0xFFFFE0B2) // light orange for dates with availability
+                                    : Colors.grey.shade300; // gray for dates with no availability
                             return Expanded(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    '${date.day}',
-                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                          fontWeight: isSelectedWeek ? FontWeight.w600 : FontWeight.normal,
-                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: isSelectedWeek ? 1.0 : 0.7),
-                                        ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    _dayLetters[i],
-                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                          fontWeight: isSelectedWeek ? FontWeight.w600 : FontWeight.normal,
-                                        ),
-                                  ),
-                                ],
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedWeekIndex = pageIndex;
+                                    _selectedDate = DateTime(date.year, date.month, date.day);
+                                    _selectedSlotLabel = '';
+                                  });
+                                },
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 30,
+                                      height: 30,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: circleColor,
+                                      ),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '${date.day}',
+                                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                              fontWeight: isSelectedDate ? FontWeight.w700 : FontWeight.normal,
+                                              color: Theme.of(context).colorScheme.onSurface.withValues(
+                                                    alpha: isSelectedWeek ? 1.0 : 0.7,
+                                                  ),
+                                            ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _dayLetters[i],
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            fontWeight: isSelectedDate ? FontWeight.w600 : FontWeight.normal,
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
                           }),
@@ -326,27 +435,30 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                   ),
                   const SizedBox(height: 16),
                   Expanded(
-                    child: dateOrder.isEmpty
+                    child: effectiveSelectedDate == null
                         ? Center(
                             child: Text(
-                              'No times this week. Scroll to another week.',
+                              'Select a date to see availability.',
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                                   ),
                             ),
                           )
-                        : ListView.builder(
-                            itemCount: dateOrder.length,
-                            itemBuilder: (context, i) {
-                              final dateLabel = dateOrder[i];
-                              final dayOptions = byDateLabel[dateLabel]!;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                        : optionsForSelectedDate.isEmpty
+                            ? Center(
+                                child: Text(
+                                  'No available slots for this date.',
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                      ),
+                                ),
+                              )
+                            : ListView(
                                 children: [
                                   Padding(
                                     padding: const EdgeInsets.only(top: 12, bottom: 8),
                                     child: Text(
-                                      dateLabel,
+                                      '${_monthNames[effectiveSelectedDate.month - 1]} ${effectiveSelectedDate.day}, ${effectiveSelectedDate.year}',
                                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -355,23 +467,23 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
-                                    children: dayOptions.map((o) {
-                                      final isSelected = _selectedSlotLabel == o.slotLabel;
-                                      return ChoiceChip(
-                                        label: Text(o.timeLabel),
-                                        selected: isSelected,
-                                        onSelected: (_) {
-                                          setState(() {
-                                            _selectedSlotLabel = o.slotLabel;
-                                          });
-                                        },
-                                      );
-                                    }).toList(),
+                                    children: optionsForSelectedDate
+                                        .map((o) {
+                                          final isSelected = _selectedSlotLabel == o.slotLabel;
+                                          return ChoiceChip(
+                                            label: Text(o.timeLabel),
+                                            selected: isSelected,
+                                            onSelected: (_) {
+                                              setState(() {
+                                                _selectedSlotLabel = o.slotLabel;
+                                              });
+                                            },
+                                          );
+                                        })
+                                        .toList(),
                                   ),
                                 ],
-                              );
-                            },
-                          ),
+                              ),
                   ),
                   if (_selectedSlotLabel.isNotEmpty) ...[
                     const SizedBox(height: 16),

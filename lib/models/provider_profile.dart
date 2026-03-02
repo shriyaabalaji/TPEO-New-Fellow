@@ -11,6 +11,7 @@ class ProviderProfile {
   final DateTime? updatedAt;
   final String? bannerUrl;
   final List<String>? galleryUrls;
+  final String? about;
 
   ProviderProfile({
     required this.providerProfileId,
@@ -25,6 +26,7 @@ class ProviderProfile {
     this.updatedAt,
     this.bannerUrl,
     this.galleryUrls,
+    this.about,
   });
 
   Map<String, dynamic> toMap() => {
@@ -40,6 +42,7 @@ class ProviderProfile {
         'updatedAt': updatedAt,
         'bannerUrl': bannerUrl,
         'galleryUrls': galleryUrls ?? [],
+        'about': about,
       };
 
   factory ProviderProfile.fromMap(Map<String, dynamic> m) => ProviderProfile(
@@ -55,5 +58,6 @@ class ProviderProfile {
         updatedAt: m['updatedAt'] is DateTime ? m['updatedAt'] as DateTime : null,
         bannerUrl: m['bannerUrl'] as String?,
         galleryUrls: (m['galleryUrls'] as List<dynamic>?)?.map((e) => e as String).toList(),
+        about: m['about'] as String?,
       );
 }

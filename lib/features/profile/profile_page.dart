@@ -308,12 +308,41 @@ class ProfilePage extends ConsumerWidget {
         ),
       );
     }
+    final primaryProfile = providerList.isNotEmpty ? providerList.first : null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('Bio / status placeholder'),
+        if (primaryProfile != null) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  (primaryProfile.about != null && primaryProfile.about!.isNotEmpty)
+                      ? primaryProfile.about!
+                      : 'Add a short bio or status so customers know what you offer.',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.edit, size: 18),
+                tooltip: 'Edit bio',
+                onPressed: () => _showEditProviderDialog(context, ref, user.uid, primaryProfile, fs),
+              ),
+            ],
+          ),
+        ] else ...[
+          const Text('Create a provider profile to add your bio and services.'),
+        ],
         const SizedBox(height: 8),
         Text('Pricing · Services', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Text(
+          'Manage your services and pricing from the My Services page.',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+        ),
         const SizedBox(height: 8),
         ElevatedButton(
           onPressed: () => context.push('/provider/me'),
@@ -504,6 +533,7 @@ class ProfilePage extends ConsumerWidget {
     final selectedTags = List<String>.from(p.tags);
     String? bannerUrl = p.bannerUrl;
     List<String> galleryUrls = List<String>.from(p.galleryUrls ?? []);
+    final aboutCtrl = TextEditingController(text: p.about ?? '');
     final storage = ref.read(storageServiceProvider);
 
     showDialog<void>(
@@ -693,6 +723,17 @@ class ProfilePage extends ConsumerWidget {
                         );
                       }).toList(),
                     ),
+                    const SizedBox(height: 16),
+                    Text('About / bio', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: aboutCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        hintText: 'Tell customers a bit about your services, experience, or any special notes.',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -713,6 +754,7 @@ class ProfilePage extends ConsumerWidget {
                     tags: List<String>.from(selectedTags),
                     bannerUrl: bannerUrl,
                     galleryUrls: galleryUrls,
+                    about: aboutCtrl.text.trim().isEmpty ? null : aboutCtrl.text.trim(),
                   );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

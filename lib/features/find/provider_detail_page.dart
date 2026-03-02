@@ -262,7 +262,9 @@ class _ProviderDetailBody extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                'Quality service for UT students. Book a slot that works for you.',
+                p.about != null && p.about!.isNotEmpty
+                    ? p.about!
+                    : 'Quality service for UT students. Book a slot that works for you.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                     ),
