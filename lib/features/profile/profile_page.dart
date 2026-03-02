@@ -529,7 +529,15 @@ class ProfilePage extends ConsumerWidget {
                     if (bannerUrl != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(bannerUrl!, height: 80, width: double.infinity, fit: BoxFit.cover),
+                        child: GestureDetector(
+                          onTap: () => _showImageLightbox(context, bannerUrl!),
+                          child: Image.network(
+                            bannerUrl!,
+                            height: 80,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
                       ),
                     if (bannerUrl != null) const SizedBox(height: 4),
                     if (storage != null && storage.isAvailable)
@@ -573,18 +581,60 @@ class ProfilePage extends ConsumerWidget {
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           itemCount: galleryUrls.length,
-                          itemBuilder: (context, i) => Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                galleryUrls[i],
-                                width: 72,
-                                height: 72,
-                                fit: BoxFit.cover,
+                          itemBuilder: (context, i) {
+                            final url = galleryUrls[i];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: GestureDetector(
+                                      onTap: () => _showImageLightbox(context, url),
+                                      child: Image.network(
+                                        url,
+                                        width: 72,
+                                        height: 72,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 2,
+                                    right: 2,
+                                    child: Material(
+                                      color: Colors.black.withValues(alpha: 0.6),
+                                      shape: const CircleBorder(),
+                                      child: InkWell(
+                                        customBorder: const CircleBorder(),
+                                        onTap: () async {
+                                          galleryUrls.removeAt(i);
+                                          setState(() {});
+                                          try {
+                                            await fs.updateProviderProfile(
+                                              providerProfileId: p.providerProfileId,
+                                              ownerUid: uid,
+                                              galleryUrls: List<String>.from(galleryUrls),
+                                            );
+                                          } catch (e) {
+                                            if (ctx.mounted) {
+                                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                                SnackBar(content: Text('Failed to delete photo: $e')),
+                                              );
+                                            }
+                                          }
+                                        },
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(2),
+                                          child: Icon(Icons.close, size: 16, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ),
+                            );
+                          },
                         ),
                       ),
                     if (galleryUrls.isNotEmpty) const SizedBox(height: 4),
@@ -731,4 +781,25 @@ class ProfilePage extends ConsumerWidget {
       ),
     );
   }
+
+void _showImageLightbox(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.9),
+    builder: (ctx) => GestureDetector(
+      onTap: () => Navigator.pop(ctx),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: InteractiveViewer(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 }

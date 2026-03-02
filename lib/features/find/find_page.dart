@@ -442,15 +442,18 @@ class _ProviderProfileCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onFavoriteTap;
 
-  Widget _buildCardImage(ProviderProfile profile) {
+  Widget _buildCardImage(BuildContext context, ProviderProfile profile) {
     final url = profile.bannerUrl ?? (profile.galleryUrls?.isNotEmpty == true ? profile.galleryUrls!.first : null);
     if (url == null || url.isEmpty) {
       return Container(color: Colors.grey.shade300);
     }
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+    return GestureDetector(
+      onTap: () => _showImageLightbox(context, url),
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+      ),
     );
   }
 
@@ -470,7 +473,7 @@ class _ProviderProfileCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  _buildCardImage(profile),
+                  _buildCardImage(context, profile),
                   if (onFavoriteTap != null)
                     Positioned(
                       bottom: 8,
@@ -530,4 +533,25 @@ class _ProviderProfileCard extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showImageLightbox(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.9),
+    builder: (ctx) => GestureDetector(
+      onTap: () => Navigator.pop(ctx),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: InteractiveViewer(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }

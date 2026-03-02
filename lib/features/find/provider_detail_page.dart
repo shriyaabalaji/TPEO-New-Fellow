@@ -124,19 +124,22 @@ class _ProviderDetailBody extends ConsumerWidget {
             SizedBox(
               height: 180,
               width: double.infinity,
-              child: (p.bannerUrl != null && p.bannerUrl!.isNotEmpty)
-                  ? Image.network(
-                      p.bannerUrl!,
+              child: Builder(
+                builder: (context) {
+                  final url = p.bannerUrl?.isNotEmpty == true
+                      ? p.bannerUrl!
+                      : (p.galleryUrls?.isNotEmpty == true ? p.galleryUrls!.first : null);
+                  if (url == null) return Container(color: Colors.grey.shade300);
+                  return GestureDetector(
+                    onTap: () => _showImageLightbox(context, url),
+                    child: Image.network(
+                      url,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
-                    )
-                  : (p.galleryUrls?.isNotEmpty == true)
-                      ? Image.network(
-                          p.galleryUrls!.first,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
-                        )
-                      : Container(color: Colors.grey.shade300),
+                    ),
+                  );
+                },
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -212,23 +215,29 @@ class _ProviderDetailBody extends ConsumerWidget {
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: p.galleryUrls!.length,
-                  itemBuilder: (_, i) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        p.galleryUrls![i],
-                        width: 100,
-                        height: 100,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
-                          width: 100,
-                          height: 100,
-                          color: Colors.grey.shade300,
+                  itemBuilder: (_, i) {
+                    final url = p.galleryUrls![i];
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: GestureDetector(
+                          onTap: () => _showImageLightbox(_, url),
+                          child: Image.network(
+                            url,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey.shade300,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -325,6 +334,26 @@ class _ProviderDetailBody extends ConsumerWidget {
   }
 }
 
+void _showImageLightbox(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.9),
+    builder: (ctx) => GestureDetector(
+      onTap: () => Navigator.pop(ctx),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Center(
+          child: InteractiveViewer(
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 class _FavoriteButton extends ConsumerWidget {
   const _FavoriteButton({required this.providerProfileId});
 
