@@ -70,6 +70,7 @@ class ProfilePage extends ConsumerWidget {
     final displayName = userProfile?.displayName ?? user.displayName;
     final photoUrl = userProfile?.photoUrl ?? user.photoUrl;
     final nameForAvatar = displayName.isNotEmpty ? displayName : '?';
+    final activeProviderProfileId = userProfile?.activeProviderProfileId;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -176,7 +177,10 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
-            if (viewingAsProvider) _buildProviderContent(context, ref, user, providerList, hasProviderProfile) else _buildConsumerContent(context),
+            if (viewingAsProvider)
+              _buildProviderContent(context, ref, user, activeProviderProfileId, providerList, hasProviderProfile)
+            else
+              _buildConsumerContent(context),
             const SizedBox(height: 24),
             const Divider(),
             Text('My Account', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -284,7 +288,14 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildProviderContent(BuildContext context, WidgetRef ref, AppUser user, List<ProviderProfile> providerList, bool hasProviderProfile) {
+  Widget _buildProviderContent(
+    BuildContext context,
+    WidgetRef ref,
+    AppUser user,
+    String? activeProviderProfileId,
+    List<ProviderProfile> providerList,
+    bool hasProviderProfile,
+  ) {
     if (user.isDemo) {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -338,12 +349,27 @@ class ProfilePage extends ConsumerWidget {
             children: [
               Text('Your provider profiles', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
-              ...providerList.map((p) => ListTile(
-                    title: Text(p.businessName),
-                    subtitle: Text(p.providerProfileId),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
-                  )),
+              ...providerList.map((p) {
+                final isActive = p.providerProfileId == activeProviderProfileId;
+                return ListTile(
+                  leading: Icon(
+                    isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                  title: Text(
+                    p.businessName,
+                    style: isActive
+                        ? Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)
+                        : Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  subtitle: isActive ? const Text('Active profile') : Text(p.providerProfileId),
+                  trailing: const Icon(Icons.chevron_right),
+                  selected: isActive,
+                  selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
+                );
+              }),
               OutlinedButton(
                 onPressed: () => _showCreateProviderDialog(context, ref),
                 child: const Text('Create Provider Account'),
