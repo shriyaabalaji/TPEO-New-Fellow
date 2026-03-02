@@ -234,11 +234,21 @@ class _BookingCardState extends State<_BookingCard> {
               ],
             ),
             const SizedBox(height: 4),
-            Text(
-              widget.dateTimeLabel,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+            Row(
+              children: [
+                Icon(Icons.calendar_today_outlined, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                const SizedBox(width: 6),
+                Icon(Icons.access_time, size: 16, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.dateTimeLabel,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                        ),
                   ),
+                ),
+              ],
             ),
             if (widget.status == 'requested' || widget.status == 'pending') ...[
               const SizedBox(height: 6),
@@ -274,7 +284,7 @@ class _BookingCardState extends State<_BookingCard> {
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(width: 4),
-                    Icon(_notesExpanded ? Icons.expand_less : Icons.expand_more, size: 20),
+                    Icon(_notesExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, size: 22),
                   ],
                 ),
               ),
@@ -308,13 +318,14 @@ class _BookingCardState extends State<_BookingCard> {
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                   ),
                 ),
-                FilledButton(
+                FilledButton.icon(
                   onPressed: () {},
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     minimumSize: const Size(0, 36),
                   ),
-                  child: const Text('Contact'),
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: const Text('Contact'),
                 ),
               ],
             ),
@@ -683,6 +694,37 @@ class _CompletedTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (isDemo) {
+      if (demoAppointments.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'No previous bookings',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your completed appointments will appear here once you\'ve visited.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                      ),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: () => context.go('/find'),
+                  child: const Text('Explore Services'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
       return ListView(
         padding: const EdgeInsets.all(16),
         children: demoAppointments.map((a) => _BookingCard(serviceName: a.title, dateTimeLabel: a.subtitle)).toList(),
@@ -697,6 +739,37 @@ class _CompletedTab extends ConsumerWidget {
       builder: (context, snap) {
         final list = snap.data ?? [];
         final completed = list.where((a) => a.status == 'completed').toList();
+        if (completed.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'No previous bookings',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Your completed appointments will appear here once you\'ve visited.',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: () => context.go('/find'),
+                    child: const Text('Explore Services'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
         return ListView(
           padding: const EdgeInsets.all(16),
           children: completed

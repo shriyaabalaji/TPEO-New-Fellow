@@ -86,35 +86,41 @@ class ProfilePage extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                  child: (photoUrl == null || photoUrl.isEmpty) ? Text(nameForAvatar.substring(0, 1).toUpperCase()) : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(displayName.isNotEmpty ? displayName : 'User', style: Theme.of(context).textTheme.titleLarge),
-                      if (viewingAsProvider) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 4),
-                            const Text('5.0 (170 reviews)'),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        const Text('551k followers · 33 following'),
-                      ],
-                    ],
+            Center(
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 48,
+                    backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
+                    child: (photoUrl == null || photoUrl.isEmpty)
+                        ? Text(
+                            nameForAvatar.substring(0, 1).toUpperCase(),
+                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                          )
+                        : null,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  Text(
+                    displayName.isNotEmpty ? displayName : 'Name',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  if (viewingAsProvider) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 4),
+                        const Text('5.0 (170 reviews)'),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text('551k followers · 33 following'),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 24),
             Row(
@@ -171,23 +177,50 @@ class ProfilePage extends ConsumerWidget {
             if (viewingAsProvider) _buildProviderContent(context, ref, user, providerList, hasProviderProfile) else _buildConsumerContent(context),
             const SizedBox(height: 24),
             const Divider(),
-            Text('My Account', style: Theme.of(context).textTheme.titleSmall),
-            ListTile(title: const Text('Account Details'), leading: const Icon(Icons.person_outline), onTap: () => context.push('/profile/account')),
-            ListTile(title: const Text('Favorites'), leading: const Icon(Icons.favorite_border), onTap: () => context.push('/profile/favorites')),
-            ListTile(title: const Text('Notifications'), leading: const Icon(Icons.notifications_outlined), onTap: () => context.push('/profile/notifications')),
+            Text('My Account', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+            ListTile(
+              title: const Text('Account Details'),
+              trailing: const Icon(Icons.chevron_right, size: 22),
+              onTap: () => context.push('/profile/account'),
+            ),
+            ListTile(
+              title: const Text('Favorites'),
+              trailing: const Icon(Icons.chevron_right, size: 22),
+              onTap: () => context.push('/profile/favorites'),
+            ),
+            ListTile(
+              title: const Text('Notifications'),
+              trailing: const Icon(Icons.chevron_right, size: 22),
+              onTap: () => context.push('/profile/notifications'),
+            ),
             if (viewingAsProvider) ...[
               const SizedBox(height: 16),
-              Text('Service Provider Details', style: Theme.of(context).textTheme.titleSmall),
-              ListTile(title: const Text('My Services'), leading: const Icon(Icons.list_alt), onTap: () => context.push('/profile/my-services')),
-              ListTile(title: const Text('Public Profile'), leading: const Icon(Icons.visibility), onTap: () => context.push('/profile/public')),
-              ListTile(title: const Text('Availability'), leading: const Icon(Icons.calendar_today), onTap: () => context.push('/profile/availability')),
+              Text('Service Provider Details', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+              ListTile(
+                title: const Text('My Services'),
+                trailing: const Icon(Icons.chevron_right, size: 22),
+                onTap: () => context.push('/profile/my-services'),
+              ),
+              ListTile(
+                title: const Text('Public Profile'),
+                trailing: const Icon(Icons.chevron_right, size: 22),
+                onTap: () => context.push('/profile/public'),
+              ),
+              ListTile(
+                title: const Text('Availability'),
+                trailing: const Icon(Icons.chevron_right, size: 22),
+                onTap: () => context.push('/profile/availability'),
+              ),
             ],
-            if (!viewingAsProvider && hasProviderProfile)
+            if (!viewingAsProvider && hasProviderProfile) ...[
+              const SizedBox(height: 16),
+              Text('Profile View', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
               ListTile(
                 title: const Text('Start Selling'),
-                leading: const Icon(Icons.store),
+                trailing: const Icon(Icons.chevron_right, size: 22),
                 onTap: () => ref.read(viewingAsProviderProvider.notifier).state = true,
               ),
+            ],
             const SizedBox(height: 24),
             OutlinedButton.icon(
               onPressed: () async {

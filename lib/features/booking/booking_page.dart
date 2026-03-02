@@ -32,10 +32,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
   String _selectedSlotLabel = '';
   String _selectedServiceName = '';
   String _selectedPrice = r'$25';
+  int _selectedWeekIndex = 0;
+  late PageController _bookingWeekPageController;
+
+  static const _dayLetters = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   @override
   void initState() {
     super.initState();
+    _bookingWeekPageController = PageController(initialPage: 0);
     if (widget.initialServiceId != null &&
         widget.initialServiceName != null &&
         widget.initialPrice != null) {
@@ -44,6 +49,22 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       _selectedPrice = widget.initialPrice!;
       _step = 1;
     }
+  }
+
+  @override
+  void dispose() {
+    _bookingWeekPageController.dispose();
+    super.dispose();
+  }
+
+  static DateTime _mondayOf(DateTime d) {
+    return d.subtract(Duration(days: d.weekday - 1));
+  }
+
+  List<DateTime> _bookingWeekStarts() {
+    final now = DateTime.now();
+    final start = _mondayOf(now);
+    return List.generate(16, (i) => start.add(Duration(days: i * 7)));
   }
 
   static const _totalSteps = 3;
@@ -176,6 +197,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
     );
   }
 
+  static const _monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
   Widget _buildTimeStep(BuildContext context, dynamic fs) {
     final profileStream = fs.streamProviderProfile(widget.providerId);
     final availabilityStream = fs.streamAvailability(widget.providerId);
@@ -189,8 +212,16 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           stream: availabilityStream,
           builder: (context, availSnap) {
             final slots = availSnap.data ?? [];
-            final options = expandSlotsToTimeOptions(slots);
-            if (options.isEmpty) {
+            final weekStarts = _bookingWeekStarts();
+            if (weekStarts.isEmpty) {
+              return const Center(child: Text('No weeks available.'));
+            }
+            final selectedWeekStart = _selectedWeekIndex < weekStarts.length
+                ? weekStarts[_selectedWeekIndex]
+                : weekStarts.first;
+            final displayMonth = '${_monthNames[selectedWeekStart.month - 1]} ${selectedWeekStart.year}';
+            final optionsForWeek = expandSlotsToTimeOptionsWithDates(slots, selectedWeekStart, 1);
+            if (optionsForWeek.isEmpty && expandSlotsToTimeOptions(slots).isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -216,11 +247,18 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 ),
               );
             }
-            final byDay = <String, List<TimeOption>>{};
-            for (final o in options) {
-              byDay.putIfAbsent(o.dayName, () => []).add(o);
+            final byDateLabel = <String, List<TimeOption>>{};
+            for (final o in optionsForWeek) {
+              final key = o.dateLabel ?? o.dayName;
+              byDateLabel.putIfAbsent(key, () => []).add(o);
             }
-            final dayOrder = dayNames.where((d) => byDay.containsKey(d)).toList();
+            final dateOrder = byDateLabel.keys.toList()..sort((a, b) {
+              final oa = byDateLabel[a]!.first;
+              final ob = byDateLabel[b]!.first;
+              final da = oa.date ?? DateTime.now();
+              final db = ob.date ?? DateTime.now();
+              return da.compareTo(db);
+            });
             return Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -236,45 +274,104 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         ),
                   ),
                   const SizedBox(height: 16),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: dayOrder.length,
-                      itemBuilder: (context, i) {
-                        final day = dayOrder[i];
-                        final dayOptions = byDay[day];
-                        if (dayOptions == null) return const SizedBox.shrink();
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(top: 12, bottom: 8),
-                              child: Text(
-                                day,
-                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                  Text(
+                    displayMonth,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 56,
+                    child: PageView.builder(
+                      controller: _bookingWeekPageController,
+                      onPageChanged: (i) {
+                        if (i >= 0 && i < weekStarts.length) {
+                          setState(() => _selectedWeekIndex = i);
+                        }
+                      },
+                      itemCount: weekStarts.length,
+                      itemBuilder: (context, pageIndex) {
+                        final weekStart = weekStarts[pageIndex];
+                        final isSelectedWeek = pageIndex == _selectedWeekIndex;
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: List.generate(7, (i) {
+                            final date = weekStart.add(Duration(days: i == 0 ? -1 : i - 1));
+                            return Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    '${date.day}',
+                                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                          fontWeight: isSelectedWeek ? FontWeight.w600 : FontWeight.normal,
+                                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: isSelectedWeek ? 1.0 : 0.7),
+                                        ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _dayLetters[i],
+                                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                          fontWeight: isSelectedWeek ? FontWeight.w600 : FontWeight.normal,
+                                        ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: dayOptions.map((o) {
-                                final isSelected = _selectedSlotLabel == o.slotLabel;
-                                return ChoiceChip(
-                                  label: Text(o.timeLabel),
-                                  selected: isSelected,
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _selectedSlotLabel = o.slotLabel;
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                          ],
+                            );
+                          }),
                         );
                       },
                     ),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: dateOrder.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No times this week. Scroll to another week.',
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                                  ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: dateOrder.length,
+                            itemBuilder: (context, i) {
+                              final dateLabel = dateOrder[i];
+                              final dayOptions = byDateLabel[dateLabel]!;
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 12, bottom: 8),
+                                    child: Text(
+                                      dateLabel,
+                                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: dayOptions.map((o) {
+                                      final isSelected = _selectedSlotLabel == o.slotLabel;
+                                      return ChoiceChip(
+                                        label: Text(o.timeLabel),
+                                        selected: isSelected,
+                                        onSelected: (_) {
+                                          setState(() {
+                                            _selectedSlotLabel = o.slotLabel;
+                                          });
+                                        },
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
                   ),
                   if (_selectedSlotLabel.isNotEmpty) ...[
                     const SizedBox(height: 16),

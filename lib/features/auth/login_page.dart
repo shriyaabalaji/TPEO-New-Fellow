@@ -21,6 +21,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  bool _showLanding = true; // false = show email/password form
   bool _isSignUp = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -137,7 +138,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("Hook'd Up"), backgroundColor: Colors.white),
+      appBar: AppBar(
+        title: Text(_showLanding ? "Login / Sign Up" : (_isSignUp ? "Sign Up" : "Login")),
+        backgroundColor: Colors.white,
+      ),
       body: authState.when(
         data: (user) {
           if (user != null) {
@@ -248,10 +252,76 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             }
             return const Center(child: CircularProgressIndicator());
           }
-          return _buildForm(context);
+          return _showLanding ? _buildLanding(context) : _buildForm(context);
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, st) => Center(child: Text('Auth error: $e')),
+      ),
+    );
+  }
+
+  Widget _buildLanding(BuildContext context) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(height: 48),
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(height: 48),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _showLanding = false;
+                    _isSignUp = false;
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                ),
+                child: const Text('Login'),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _showLanding = false;
+                    _isSignUp = true;
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                ),
+                child: const Text('Sign Up'),
+              ),
+            ),
+            const SizedBox(height: 32),
+            TextButton(
+              onPressed: () async {
+                await ref.read(demoModeProvider.notifier).enterDemo();
+                if (context.mounted) context.go('/onboarding/role');
+              },
+              child: const Text('Skip (demo)'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -266,18 +336,23 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => setState(() => _showLanding = true),
+                ),
+              ),
               Text(
-                "Hook'd Up",
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
+                _isSignUp ? "Create account" : "Sign in",
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
-                'UT-only services — use your @my.utexas.edu account',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                'Use your @my.utexas.edu account',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
-                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
               TextFormField(
@@ -320,17 +395,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 onPressed: () => setState(() => _isSignUp = !_isSignUp),
                 child: Text(_isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"),
               ),
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () async {
-                  await ref.read(demoModeProvider.notifier).enterDemo();
-                  if (context.mounted) context.go('/onboarding/role');
-                },
-                child: const Text('Skip (demo)'),
-              ),
               const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => setState(() => _showLanding = true),
+                child: const Text('Back'),
+              ),
+              const SizedBox(height: 24),
               TextButton(
                 onPressed: () async {
                   await clearOnboardingDone();
@@ -354,5 +424,4 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-
 }

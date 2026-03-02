@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/constants/tag_options.dart';
 import '../auth/auth_controller.dart';
 import '../profile/provider_account_controller.dart';
+import 'onboarding_progress.dart';
 import 'onboarding_provider.dart';
 
 class InterestsScreen extends ConsumerWidget {
   const InterestsScreen({super.key});
+
+  static const int stepIndex = 2;
+  static const int totalSteps = 3;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,7 +22,14 @@ class InterestsScreen extends ConsumerWidget {
         title: const Text('Getting Started'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/onboarding/username'),
+          onPressed: () => context.go('/onboarding/name'),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(32),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: OnboardingProgressLines(currentStep: stepIndex, totalSteps: totalSteps),
+          ),
         ),
       ),
       body: Padding(

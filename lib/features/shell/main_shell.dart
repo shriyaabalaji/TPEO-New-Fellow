@@ -48,6 +48,10 @@ class MainShell extends ConsumerWidget {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: index,
         onTap: (i) => context.go(tabs[i].path),
+        backgroundColor: const Color(0xFF2D2D2D),
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.white70,
+        type: BottomNavigationBarType.fixed,
         items: tabs
             .map((t) => BottomNavigationBarItem(
                   icon: Icon(loc.startsWith(t.path) ? t.selectedIcon : t.icon),

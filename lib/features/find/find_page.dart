@@ -113,7 +113,7 @@ class FindPage extends ConsumerWidget {
                 child: TextField(
                   decoration: InputDecoration(
                     hintText: 'Search',
-                    prefixIcon: const Icon(Icons.search, size: 22),
+                    prefixIcon: Icon(hasFilter ? Icons.filter_list : Icons.search, size: 22),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     filled: true,
                     fillColor: const Color(0xFFF5F5F5),
@@ -391,7 +391,7 @@ class _ProviderProfileCard extends StatelessWidget {
                   Container(color: Colors.grey.shade300),
                   if (onFavoriteTap != null)
                     Positioned(
-                      top: 8,
+                      bottom: 8,
                       right: 8,
                       child: Material(
                         color: Colors.white.withValues(alpha: 0.9),

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'onboarding_progress.dart';
 import 'onboarding_provider.dart';
 
 class RoleScreen extends ConsumerWidget {
   const RoleScreen({super.key});
+
+  static const int stepIndex = 0;
+  static const int totalSteps = 3;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -14,6 +18,13 @@ class RoleScreen extends ConsumerWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/login'),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(32),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+            child: OnboardingProgressLines(currentStep: stepIndex, totalSteps: totalSteps),
+          ),
         ),
       ),
       body: Padding(
