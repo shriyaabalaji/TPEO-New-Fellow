@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/firestore/firestore_service.dart';
 import '../../models/appointment.dart';
+import '../../models/availability_slot.dart';
+import '../../utils/availability_options.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
 import '../profile/view_mode_provider.dart';
@@ -512,67 +514,115 @@ class _ProviderAppointmentCardState extends State<_ProviderAppointmentCard> {
 
   Future<void> _showEditDialog(BuildContext context, FirestoreService fs) async {
     final serviceCtrl = TextEditingController(text: _serviceName);
-    final slotCtrl = TextEditingController(text: _slotLabel);
     final priceCtrl = TextEditingController(text: _price);
+    var selectedSlotLabel = _slotLabel;
     await showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit appointment'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: serviceCtrl,
-                decoration: const InputDecoration(labelText: 'Service'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: slotCtrl,
-                decoration: const InputDecoration(labelText: 'Date & time'),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: priceCtrl,
-                decoration: const InputDecoration(labelText: 'Price'),
-                keyboardType: TextInputType.text,
-              ),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Edit appointment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: serviceCtrl,
+                  decoration: const InputDecoration(labelText: 'Service'),
+                ),
+                const SizedBox(height: 16),
+                Text('Date & time', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                StreamBuilder<List<AvailabilitySlot>>(
+                  stream: fs.streamAvailability(widget.appointment.providerProfileId),
+                  builder: (context, availSnap) {
+                    final slots = availSnap.data ?? [];
+                    final options = expandSlotsToTimeOptions(slots);
+                    if (options.isEmpty) {
+                      return Text(
+                        selectedSlotLabel,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      );
+                    }
+                    final byDay = <String, List<TimeOption>>{};
+                    for (final o in options) {
+                      byDay.putIfAbsent(o.dayName, () => []).add(o);
+                    }
+                    final dayOrder = dayNames.where((d) => byDay.containsKey(d)).toList();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: dayOrder.map((day) {
+                        final dayOptions = byDay[day]!;
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(day, style: Theme.of(context).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 6,
+                                children: dayOptions.map((o) {
+                                  final isSelected = selectedSlotLabel == o.slotLabel;
+                                  return ChoiceChip(
+                                    label: Text(o.timeLabel),
+                                    selected: isSelected,
+                                    onSelected: (_) {
+                                      setDialogState(() => selectedSlotLabel = o.slotLabel);
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: priceCtrl,
+                  decoration: const InputDecoration(labelText: 'Price'),
+                  keyboardType: TextInputType.text,
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () async {
+                final newService = serviceCtrl.text.trim();
+                final newPrice = priceCtrl.text.trim();
+                if (newService.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  await fs.updateAppointment(
+                    appointmentId: widget.appointment.appointmentId,
+                    serviceName: newService,
+                    slotLabel: selectedSlotLabel,
+                    price: newPrice.isEmpty ? null : newPrice,
+                  );
+                  if (mounted) {
+                    setState(() {
+                      _serviceName = newService;
+                      _slotLabel = selectedSlotLabel;
+                      _price = newPrice;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Changes saved')));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                  }
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () async {
-              final newService = serviceCtrl.text.trim();
-              final newSlot = slotCtrl.text.trim();
-              final newPrice = priceCtrl.text.trim();
-              if (newService.isEmpty) return;
-              Navigator.pop(ctx);
-              try {
-                await fs.updateAppointment(
-                  appointmentId: widget.appointment.appointmentId,
-                  serviceName: newService,
-                  slotLabel: newSlot,
-                  price: newPrice.isEmpty ? null : newPrice,
-                );
-                if (mounted) {
-                  setState(() {
-                    _serviceName = newService;
-                    _slotLabel = newSlot;
-                    _price = newPrice;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Changes saved')));
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/tag_options.dart';
+import '../../core/firestore/firestore_service.dart';
 import '../../models/user_profile.dart';
 import '../../models/provider_profile.dart';
 import '../auth/effective_user_provider.dart';
@@ -231,7 +232,7 @@ class FindPage extends ConsumerWidget {
                       isFavorite: isFav,
                       onTap: () => context.push('/provider/${p.providerProfileId}'),
                       onFavoriteTap: fs != null && currentUid != null
-                          ? () => _toggleFavorite(ref, fs, currentUid, p.providerProfileId, isFav)
+                          ? () => _toggleFavorite(ref, fs!, currentUid, p.providerProfileId, isFav, context)
                           : null,
                     );
                   },
@@ -241,14 +242,33 @@ class FindPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _toggleFavorite(WidgetRef ref, dynamic fs, String uid, String providerId, bool currentlyFav) async {
+  Future<void> _toggleFavorite(
+    WidgetRef ref,
+    FirestoreService fs,
+    String uid,
+    String providerId,
+    bool currentlyFav,
+    BuildContext context,
+  ) async {
     try {
       if (currentlyFav) {
         await fs.removeFavorite(uid, providerId);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Removed from favorites')));
+        }
       } else {
         await fs.addFavorite(uid, providerId);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to favorites')));
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update favorites: ${e.toString().replaceFirst(RegExp(r'^Exception:?\s*'), '')}')),
+        );
+      }
+    }
   }
 
   void _showFilterSheet(BuildContext context, WidgetRef ref, String? selectedCategory) {

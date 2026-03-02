@@ -30,7 +30,7 @@ service cloud.firestore {
     // appointments baseline
     match /appointments/{appointmentId} {
       allow create: if isUtUser() && request.resource.data.consumerUid == request.auth.uid
-        && request.resource.data.status == 'pending';
+        && (request.resource.data.status == 'pending' || request.resource.data.status == 'requested');
 
       allow read: if isUtUser() && (
         request.auth.uid == resource.data.consumerUid ||
