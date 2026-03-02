@@ -16,7 +16,7 @@ class FavoritesPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
         title: const Text('Favorites'),
       ),
       body: effectiveUser.when(

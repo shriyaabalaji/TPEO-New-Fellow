@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/constants/tag_options.dart';
 import '../auth/auth_controller.dart';
 import '../profile/provider_account_controller.dart';
 import 'onboarding_provider.dart';
-
-const _interestOptions = [
-  'Nails', 'Hair', 'Photography', 'Tutoring', 'Fitness',
-  'Art', 'Music', 'Tech', 'Writing', 'Design', 'Other',
-];
 
 class InterestsScreen extends ConsumerWidget {
   const InterestsScreen({super.key});
@@ -46,7 +42,7 @@ class InterestsScreen extends ConsumerWidget {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: _interestOptions.map((tag) {
+              children: tagOptions.map((tag) {
                 final isSelected = selected.contains(tag);
                 return FilterChip(
                   label: Text(tag),

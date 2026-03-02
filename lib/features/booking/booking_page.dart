@@ -7,6 +7,41 @@ import '../../models/service.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
 
+const _dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+class _TimeOption {
+  const _TimeOption({required this.dayName, required this.timeLabel, required this.slotLabel});
+  final String dayName;
+  final String timeLabel;
+  final String slotLabel;
+}
+
+/// Expand recurring slots into 30-min start-time options.
+List<_TimeOption> _expandSlotsToTimeOptions(List<AvailabilitySlot> slots) {
+  final result = <_TimeOption>[];
+  for (final s in slots) {
+    final dayName = s.dayOfWeek >= 1 && s.dayOfWeek <= 7 ? _dayNames[s.dayOfWeek - 1] : 'Day${s.dayOfWeek}';
+    final startParts = s.start.split(':');
+    final endParts = s.end.split(':');
+    final startH = int.tryParse(startParts.isNotEmpty ? startParts[0] : '') ?? 0;
+    final startM = int.tryParse(startParts.length > 1 ? startParts[1] : '0') ?? 0;
+    final endH = int.tryParse(endParts.isNotEmpty ? endParts[0] : '') ?? 0;
+    final endM = int.tryParse(endParts.length > 1 ? endParts[1] : '0') ?? 0;
+    var totalMin = startH * 60 + startM;
+    final endTotal = endH * 60 + endM;
+    while (totalMin < endTotal) {
+      final h = totalMin ~/ 60;
+      final m = totalMin % 60;
+      final hour12 = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+      final ampm = h < 12 ? 'am' : 'pm';
+      final timeLabel = '$hour12:${m.toString().padLeft(2, '0')} $ampm';
+      result.add(_TimeOption(dayName: dayName, timeLabel: timeLabel, slotLabel: '$dayName $timeLabel'));
+      totalMin += 30;
+    }
+  }
+  return result;
+}
+
 class BookingPage extends ConsumerStatefulWidget {
   const BookingPage({
     super.key,
@@ -55,7 +90,15 @@ class _BookingPageState extends ConsumerState<BookingPage> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => _step > 0 ? setState(() => _step--) : context.pop(),
+          onPressed: () {
+              if (_step > 0) {
+                setState(() => _step--);
+              } else if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/find');
+              }
+            },
         ),
         title: const Text('Booking'),
         bottom: PreferredSize(
@@ -180,14 +223,8 @@ class _BookingPageState extends ConsumerState<BookingPage> {
           stream: availabilityStream,
           builder: (context, availSnap) {
             final slots = availSnap.data ?? [];
-            final slotLabels = slots.map((s) {
-              const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-              final d = s.dayOfWeek >= 1 && s.dayOfWeek <= 7
-                  ? days[s.dayOfWeek - 1]
-                  : 'Day${s.dayOfWeek}';
-              return '$d ${s.start}–${s.end}';
-            }).toList();
-            if (slotLabels.isEmpty) {
+            final options = _expandSlotsToTimeOptions(slots);
+            if (options.isEmpty) {
               return Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
@@ -213,6 +250,11 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 ),
               );
             }
+            final byDay = <String, List<_TimeOption>>{};
+            for (final o in options) {
+              byDay.putIfAbsent(o.dayName, () => []).add(o);
+            }
+            final dayOrder = _dayNames.where((d) => byDay.containsKey(d)).toList();
             return Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -220,38 +262,61 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 children: [
                   const SizedBox(height: 16),
                   Text('Choose a Time Slot', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const CircleAvatar(radius: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          '$providerName\'s Availability',
-                          style: Theme.of(context).textTheme.titleSmall,
+                  const SizedBox(height: 8),
+                  Text(
+                    '$providerName\'s Availability',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                         ),
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 16),
-                  ...slotLabels.map((label) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: OutlinedButton(
-                          onPressed: () {
-                            setState(() {
-                              _selectedSlotLabel = label;
-                              _step = 2;
-                            });
-                          },
-                          child: Text(label),
-                        ),
-                      )),
-                  const Spacer(),
-                  if (_selectedSlotLabel.isNotEmpty)
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: dayOrder.length,
+                      itemBuilder: (context, i) {
+                        final day = dayOrder[i];
+                        final dayOptions = byDay[day];
+                        if (dayOptions == null) return const SizedBox.shrink();
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 12, bottom: 8),
+                              child: Text(
+                                day,
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: dayOptions.map((o) {
+                                final isSelected = _selectedSlotLabel == o.slotLabel;
+                                return ChoiceChip(
+                                  label: Text(o.timeLabel),
+                                  selected: isSelected,
+                                  onSelected: (_) {
+                                    setState(() {
+                                      _selectedSlotLabel = o.slotLabel;
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  if (_selectedSlotLabel.isNotEmpty) ...[
+                    const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => setState(() => _step = 2),
                       child: const Text('Continue'),
                     ),
+                  ],
                 ],
               ),
             );

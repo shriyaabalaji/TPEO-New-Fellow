@@ -36,12 +36,25 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> with Single
     final demoAppointments = ref.watch(demoAppointmentsProvider);
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
-        title: const Text('Appointments'),
+        title: const Text('My Bookings'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune),
+            onPressed: () {},
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
+          labelColor: Theme.of(context).colorScheme.primary,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+          indicatorColor: Theme.of(context).colorScheme.primary,
           tabs: const [
-            Tab(text: 'Scheduled'),
+            Tab(text: 'Upcoming'),
             Tab(text: 'Completed'),
           ],
         ),
@@ -52,7 +65,7 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> with Single
           return TabBarView(
             controller: _tabController,
             children: [
-              _ScheduledTab(
+              _UpcomingTab(
                 appUser: appUser,
                 viewingAsProvider: viewingAsProvider,
                 isDemo: isDemo,
@@ -69,8 +82,11 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> with Single
   }
 }
 
-class _ScheduledTab extends ConsumerWidget {
-  const _ScheduledTab({
+bool _isUpcoming(String status) =>
+    status == 'requested' || status == 'pending' || status == 'confirmed';
+
+class _UpcomingTab extends ConsumerWidget {
+  const _UpcomingTab({
     required this.appUser,
     required this.viewingAsProvider,
     required this.isDemo,
@@ -85,22 +101,17 @@ class _ScheduledTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (isDemo) {
-      return SingleChildScrollView(
+      return ListView(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Your appointments (demo)', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            ...demoAppointments.map((a) => _AppointmentCard(title: a.title, subtitle: a.subtitle)),
-            const SizedBox(height: 32),
-            OutlinedButton.icon(
-              onPressed: () => context.go('/find'),
-              icon: const Icon(Icons.calendar_today),
-              label: const Text('Book now!'),
-            ),
-          ],
-        ),
+        children: [
+          ...demoAppointments.map((a) => _BookingCard(serviceName: a.title, dateTimeLabel: a.subtitle)),
+          const SizedBox(height: 24),
+          OutlinedButton.icon(
+            onPressed: () => context.go('/find'),
+            icon: const Icon(Icons.calendar_today),
+            label: const Text('Book now!'),
+          ),
+        ],
       );
     }
     final fs = ref.watch(firestoreServiceProvider);
@@ -115,63 +126,54 @@ class _ScheduledTab extends ConsumerWidget {
           stream: fs.streamAppointmentsByConsumer(appUser!.uid),
           builder: (context, consumerSnap) {
             final consumerList = consumerSnap.data ?? [];
-            final scheduled = consumerList.where((a) => a.status == 'pending' || a.status == 'confirmed').toList();
+            final scheduled = consumerList.where((a) => _isUpcoming(a.status)).toList();
             if (viewingAsProvider && activeId != null && activeId.isNotEmpty) {
               return StreamBuilder(
                 stream: fs.streamAppointmentsByProviderProfile(activeId),
                 builder: (context, providerSnap) {
                   final providerList = providerSnap.data ?? [];
-                  final providerScheduled = providerList.where((a) => a.status == 'pending' || a.status == 'confirmed').toList();
-                  return SingleChildScrollView(
+                  final upcoming = providerList.where((a) => _isUpcoming(a.status)).toList();
+                  final requestedFirst = [
+                    ...upcoming.where((a) => a.status == 'requested' || a.status == 'pending'),
+                    ...upcoming.where((a) => a.status == 'confirmed'),
+                  ];
+                  return ListView(
                     padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (providerScheduled.isNotEmpty) ...[
-                          Text('Incoming (as provider)', style: Theme.of(context).textTheme.titleSmall),
-                          const SizedBox(height: 8),
-                          ...providerScheduled.map((a) => _ProviderAppointmentCard(appointment: a, fs: fs)),
-                          const SizedBox(height: 24),
-                        ],
-                        Text('Your appointments', style: Theme.of(context).textTheme.titleSmall),
-                        const SizedBox(height: 8),
-                        ...scheduled.map((a) => _AppointmentCard(
-                              title: a.serviceName,
-                              subtitle: a.slotLabel,
-                              price: a.price,
-                            )),
-                        const SizedBox(height: 32),
-                        OutlinedButton.icon(
-                          onPressed: () => context.go('/find'),
-                          icon: const Icon(Icons.calendar_today),
-                          label: const Text('Book now!'),
-                        ),
-                      ],
-                    ),
+                    children: [
+                      ...requestedFirst.map((a) => _ProviderAppointmentCard(appointment: a, fs: fs)),
+                      ...scheduled.map((a) => _BookingCard(
+                            serviceName: a.serviceName,
+                            dateTimeLabel: a.slotLabel,
+                            price: a.price,
+                            status: a.status,
+                          )),
+                      const SizedBox(height: 24),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/find'),
+                        icon: const Icon(Icons.calendar_today),
+                        label: const Text('Book now!'),
+                      ),
+                    ],
                   );
                 },
               );
             }
-            return SingleChildScrollView(
+            return ListView(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Your appointments', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: 8),
-                  ...scheduled.map((a) => _AppointmentCard(
-                        title: a.serviceName,
-                        subtitle: a.slotLabel,
-                        price: a.price,
-                      )),
-                  const SizedBox(height: 32),
-                  OutlinedButton.icon(
-                    onPressed: () => context.go('/find'),
-                    icon: const Icon(Icons.calendar_today),
-                    label: const Text('Book now!'),
-                  ),
-                ],
-              ),
+              children: [
+                ...scheduled.map((a) => _BookingCard(
+                      serviceName: a.serviceName,
+                      dateTimeLabel: a.slotLabel,
+                      price: a.price,
+                      status: a.status,
+                    )),
+                const SizedBox(height: 24),
+                OutlinedButton.icon(
+                  onPressed: () => context.go('/find'),
+                  icon: const Icon(Icons.calendar_today),
+                  label: const Text('Book now!'),
+                ),
+              ],
             );
           },
         );
@@ -180,69 +182,284 @@ class _ScheduledTab extends ConsumerWidget {
   }
 }
 
-class _AppointmentCard extends StatelessWidget {
-  const _AppointmentCard({
-    required this.title,
-    required this.subtitle,
+class _BookingCard extends StatefulWidget {
+  const _BookingCard({
+    required this.serviceName,
+    required this.dateTimeLabel,
     this.price,
+    this.status,
   });
 
-  final String title;
-  final String subtitle;
+  final String serviceName;
+  final String dateTimeLabel;
   final String? price;
+  final String? status;
+
+  @override
+  State<_BookingCard> createState() => _BookingCardState();
+}
+
+class _BookingCardState extends State<_BookingCard> {
+  var _notesExpanded = false;
 
   @override
   Widget build(BuildContext context) {
+    const providerName = 'Provider';
+    final initial = providerName.isNotEmpty ? providerName.substring(0, 1).toUpperCase() : '?';
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: CircleAvatar(
-          radius: 24,
-          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          child: Text(
-            title.isNotEmpty ? title.substring(0, 1).toUpperCase() : '?',
-            style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
-          ),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.serviceName,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => _showBookingMenu(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.dateTimeLabel,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                  ),
+            ),
+            if (widget.status == 'requested' || widget.status == 'pending') ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCC5500).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFCC5500), width: 1),
+                  ),
+                  child: Text(
+                    'Requested',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: const Color(0xFFCC5500),
+                          fontWeight: FontWeight.w600,
+                        ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () => setState(() => _notesExpanded = !_notesExpanded),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Text(
+                      'Appointment Notes',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(_notesExpanded ? Icons.expand_less : Icons.expand_more, size: 20),
+                  ],
+                ),
+              ),
+            ),
+            if (_notesExpanded)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  widget.price != null && widget.price!.isNotEmpty ? 'Total: ${widget.price}' : 'No notes',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    initial,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    providerName,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () {},
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    minimumSize: const Size(0, 36),
+                  ),
+                  child: const Text('Contact'),
+                ),
+              ],
+            ),
+          ],
         ),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Text(subtitle),
-        trailing: price != null && price!.isNotEmpty
-            ? Text(price!, style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600))
-            : const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+
+  void _showBookingMenu(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit),
+              title: const Text('Edit'),
+              onTap: () => Navigator.pop(ctx),
+            ),
+            ListTile(
+              leading: Icon(Icons.cancel_outlined, color: Theme.of(context).colorScheme.error),
+              title: Text('Cancel', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ProviderAppointmentCard extends StatelessWidget {
+class _ProviderAppointmentCard extends StatefulWidget {
   const _ProviderAppointmentCard({required this.appointment, required this.fs});
 
   final Appointment appointment;
   final FirestoreService fs;
 
   @override
+  State<_ProviderAppointmentCard> createState() => _ProviderAppointmentCardState();
+}
+
+class _ProviderAppointmentCardState extends State<_ProviderAppointmentCard> {
+  late String _serviceName;
+  late String _slotLabel;
+  late String _price;
+
+  @override
+  void initState() {
+    super.initState();
+    _serviceName = widget.appointment.serviceName;
+    _slotLabel = widget.appointment.slotLabel;
+    _price = widget.appointment.price ?? '';
+  }
+
+  @override
+  void didUpdateWidget(covariant _ProviderAppointmentCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.appointment.appointmentId != widget.appointment.appointmentId ||
+        oldWidget.appointment.updatedAt != widget.appointment.updatedAt) {
+      _serviceName = widget.appointment.serviceName;
+      _slotLabel = widget.appointment.slotLabel;
+      _price = widget.appointment.price ?? '';
+    }
+  }
+
+  bool get _isRequested =>
+      widget.appointment.status == 'requested' || widget.appointment.status == 'pending';
+
+  @override
   Widget build(BuildContext context) {
-    final isPending = appointment.status == 'pending';
+    final appointment = widget.appointment;
+    final fs = widget.fs;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            leading: CircleAvatar(
-              radius: 24,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              child: const Icon(Icons.person, color: Colors.white),
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: const Icon(Icons.person, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (_isRequested)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFCC5500).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'Requested',
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: const Color(0xFFCC5500),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                          ),
+                        )
+                      else
+                        Text(
+                          'Confirmed',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _serviceName,
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      Text(
+                        _slotLabel,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                            ),
+                      ),
+                      if (_price.isNotEmpty)
+                        Text(
+                          _price,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                    ],
+                  ),
+                ),
+                if (_isRequested)
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _showEditDialog(context, fs),
+                  ),
+              ],
             ),
-            title: Text(appointment.serviceName, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('${appointment.slotLabel} · ${appointment.status}'),
-          ),
-          if (isPending)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Row(
+            if (_isRequested) ...[
+              const SizedBox(height: 12),
+              Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
@@ -264,9 +481,17 @@ class _ProviderAppointmentCard extends StatelessWidget {
                   FilledButton(
                     onPressed: () async {
                       try {
+                        if (_serviceName != appointment.serviceName || _slotLabel != appointment.slotLabel || _price != (appointment.price ?? '')) {
+                          await fs.updateAppointment(
+                            appointmentId: appointment.appointmentId,
+                            serviceName: _serviceName,
+                            slotLabel: _slotLabel,
+                            price: _price.isEmpty ? null : _price,
+                          );
+                        }
                         await fs.updateAppointmentStatus(appointment.appointmentId, 'confirmed');
                         if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request accepted')));
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Appointment confirmed')));
                         }
                       } catch (e) {
                         if (context.mounted) {
@@ -274,11 +499,79 @@ class _ProviderAppointmentCard extends StatelessWidget {
                         }
                       }
                     },
-                    child: const Text('Accept'),
+                    child: const Text('Confirm'),
                   ),
                 ],
               ),
-            ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditDialog(BuildContext context, FirestoreService fs) async {
+    final serviceCtrl = TextEditingController(text: _serviceName);
+    final slotCtrl = TextEditingController(text: _slotLabel);
+    final priceCtrl = TextEditingController(text: _price);
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit appointment'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: serviceCtrl,
+                decoration: const InputDecoration(labelText: 'Service'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: slotCtrl,
+                decoration: const InputDecoration(labelText: 'Date & time'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: priceCtrl,
+                decoration: const InputDecoration(labelText: 'Price'),
+                keyboardType: TextInputType.text,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () async {
+              final newService = serviceCtrl.text.trim();
+              final newSlot = slotCtrl.text.trim();
+              final newPrice = priceCtrl.text.trim();
+              if (newService.isEmpty) return;
+              Navigator.pop(ctx);
+              try {
+                await fs.updateAppointment(
+                  appointmentId: widget.appointment.appointmentId,
+                  serviceName: newService,
+                  slotLabel: newSlot,
+                  price: newPrice.isEmpty ? null : newPrice,
+                );
+                if (mounted) {
+                  setState(() {
+                    _serviceName = newService;
+                    _slotLabel = newSlot;
+                    _price = newPrice;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Changes saved')));
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
+                }
+              }
+            },
+            child: const Text('Save'),
+          ),
         ],
       ),
     );
@@ -342,11 +635,7 @@ class _CompletedTab extends ConsumerWidget {
     if (isDemo) {
       return ListView(
         padding: const EdgeInsets.all(16),
-        children: [
-          Text('Completed (demo)', style: Theme.of(context).textTheme.titleSmall),
-          const SizedBox(height: 8),
-          ...demoAppointments.map((a) => _AppointmentCard(title: a.title, subtitle: a.subtitle)),
-        ],
+        children: demoAppointments.map((a) => _BookingCard(serviceName: a.title, dateTimeLabel: a.subtitle)).toList(),
       );
     }
     final fs = ref.watch(firestoreServiceProvider);
@@ -360,11 +649,13 @@ class _CompletedTab extends ConsumerWidget {
         final completed = list.where((a) => a.status == 'completed').toList();
         return ListView(
           padding: const EdgeInsets.all(16),
-          children: [
-            Text('Completed', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 8),
-            ...completed.map((a) => _AppointmentCard(title: a.serviceName, subtitle: a.slotLabel, price: a.price)),
-          ],
+          children: completed
+              .map((a) => _BookingCard(
+                    serviceName: a.serviceName,
+                    dateTimeLabel: a.slotLabel,
+                    price: a.price,
+                  ))
+              .toList(),
         );
       },
     );

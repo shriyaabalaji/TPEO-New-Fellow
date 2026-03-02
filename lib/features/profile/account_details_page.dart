@@ -20,7 +20,7 @@ class AccountDetailsPage extends ConsumerWidget {
         if (appUser == null) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
               title: const Text('Account Details'),
             ),
             body: const Center(child: Text('Not signed in')),
@@ -29,7 +29,7 @@ class AccountDetailsPage extends ConsumerWidget {
         if (appUser.isDemo || fs == null) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
               title: const Text('Account Details'),
             ),
             body: ListView(
@@ -57,7 +57,7 @@ class AccountDetailsPage extends ConsumerWidget {
 
             return Scaffold(
               appBar: AppBar(
-                leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+                leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
                 title: const Text('Account Details'),
               ),
               body: ListView(
@@ -88,14 +88,14 @@ class AccountDetailsPage extends ConsumerWidget {
       },
       loading: () => Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
           title: const Text('Account Details'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
           title: const Text('Account Details'),
         ),
         body: Center(child: Text('Error: $e')),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/constants/tag_options.dart';
 import '../../core/firestore/firestore_service.dart';
 import '../../models/provider_profile.dart';
 import '../../models/user_profile.dart';
@@ -320,26 +321,52 @@ class ProfilePage extends ConsumerWidget {
 
   void _showCreateProviderDialog(BuildContext context, WidgetRef ref) {
     final nameCtrl = TextEditingController();
-    final tagsCtrl = TextEditingController();
+    final selectedTags = <String>[];
     showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create Provider Account'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Business name')),
-            const SizedBox(height: 12),
-            TextField(controller: tagsCtrl, decoration: const InputDecoration(labelText: 'Tags (comma separated)')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create Provider Account'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Business name')),
+                const SizedBox(height: 16),
+                Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: tagOptions.map((tag) {
+                    final isSelected = selectedTags.contains(tag);
+                    return FilterChip(
+                      label: Text(tag),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          if (isSelected) {
+                            selectedTags.remove(tag);
+                          } else {
+                            selectedTags.add(tag);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, {'name': nameCtrl.text.trim(), 'tags': List<String>.from(selectedTags)}),
+              child: const Text('Create'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, {'name': nameCtrl.text, 'tags': tagsCtrl.text}),
-            child: const Text('Create'),
-          ),
-        ],
       ),
     ).then((res) async {
       if (res == null) return;
@@ -356,7 +383,7 @@ class ProfilePage extends ConsumerWidget {
       }
       await ref.read(authServiceProvider)?.reloadUser();
       final name = res['name'] as String? ?? '';
-      final tags = (res['tags'] as String? ?? '').split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      final tags = (res['tags'] as List<String>? ?? []);
       try {
         final id = await fs.createProviderProfile(ownerUid: firebaseUser.uid, businessName: name, tags: tags);
         await fs.setActiveProviderProfile(uid: firebaseUser.uid, providerProfileId: id);
@@ -439,60 +466,78 @@ class ProfilePage extends ConsumerWidget {
     FirestoreService fs,
   ) {
     final nameCtrl = TextEditingController(text: p.businessName);
-    final tagsCtrl = TextEditingController(text: p.tags.join(', '));
+    final selectedTags = List<String>.from(p.tags);
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Edit provider'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'Business name'),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit provider'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'Business name'),
+                ),
+                const SizedBox(height: 16),
+                Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: tagOptions.map((tag) {
+                    final isSelected = selectedTags.contains(tag);
+                    return FilterChip(
+                      label: Text(tag),
+                      selected: isSelected,
+                      onSelected: (_) {
+                        setState(() {
+                          if (isSelected) {
+                            selectedTags.remove(tag);
+                          } else {
+                            selectedTags.add(tag);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: tagsCtrl,
-              decoration: const InputDecoration(labelText: 'Tags (comma separated)'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                Navigator.pop(ctx);
+                try {
+                  await fs.updateProviderProfile(
+                    providerProfileId: p.providerProfileId,
+                    ownerUid: uid,
+                    businessName: name,
+                    tags: List<String>.from(selectedTags),
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Provider updated')),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Save'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final name = nameCtrl.text.trim();
-              final tags = tagsCtrl.text
-                  .split(',')
-                  .map((s) => s.trim())
-                  .where((s) => s.isNotEmpty)
-                  .toList();
-              if (name.isEmpty) return;
-              Navigator.pop(ctx);
-              try {
-                await fs.updateProviderProfile(
-                  providerProfileId: p.providerProfileId,
-                  ownerUid: uid,
-                  businessName: name,
-                  tags: tags,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Provider updated')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
       ),
     );
   }

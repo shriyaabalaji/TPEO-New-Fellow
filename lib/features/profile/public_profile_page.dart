@@ -17,7 +17,7 @@ class PublicProfilePage extends ConsumerWidget {
         if (appUser == null) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
               title: const Text('Public Profile'),
             ),
             body: const Center(child: Text('Not signed in')),
@@ -27,7 +27,7 @@ class PublicProfilePage extends ConsumerWidget {
         if (appUser.isDemo) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
               title: const Text('Public Profile'),
             ),
             body: SingleChildScrollView(
@@ -52,7 +52,7 @@ class PublicProfilePage extends ConsumerWidget {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
-                  ElevatedButton(onPressed: () => context.pop(), child: const Text('Done')),
+                  ElevatedButton(onPressed: () => context.go('/profile'), child: const Text('Done')),
                 ],
               ),
             ),
@@ -62,7 +62,7 @@ class PublicProfilePage extends ConsumerWidget {
         if (fs == null) {
           return Scaffold(
             appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
               title: const Text('Public Profile'),
             ),
             body: const Center(
@@ -72,7 +72,7 @@ class PublicProfilePage extends ConsumerWidget {
         }
         return Scaffold(
           appBar: AppBar(
-            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
             title: const Text('Public Profile'),
           ),
           body: StreamBuilder(
@@ -103,7 +103,7 @@ class PublicProfilePage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 24),
                       ElevatedButton(
-                        onPressed: () => context.pop(),
+                        onPressed: () => context.go('/profile'),
                         child: const Text('Done'),
                       ),
                     ],
@@ -166,7 +166,7 @@ class PublicProfilePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () => context.pop(),
+                      onPressed: () => context.go('/profile'),
                       child: const Text('Done'),
                     ),
                   ],
@@ -178,14 +178,14 @@ class PublicProfilePage extends ConsumerWidget {
       },
       loading: () => Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
           title: const Text('Public Profile'),
         ),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
         appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
           title: const Text('Public Profile'),
         ),
         body: Center(child: Text('Error: $e')),

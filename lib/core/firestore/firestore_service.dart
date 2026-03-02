@@ -244,7 +244,7 @@ class FirestoreService {
       serviceName: serviceName,
       slotLabel: slotLabel,
       price: price,
-      status: 'pending',
+      status: 'requested',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -269,6 +269,22 @@ class FirestoreService {
 
   Future<void> updateAppointmentStatus(String appointmentId, String status) async {
     await _db.collection(FSPaths.appointments).doc(appointmentId).update({'status': status, 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
+  /// Update appointment fields (for provider editing before confirm). Only provided fields are updated.
+  Future<void> updateAppointment({
+    required String appointmentId,
+    String? serviceName,
+    String? slotLabel,
+    String? price,
+  }) async {
+    final ref = _db.collection(FSPaths.appointments).doc(appointmentId);
+    final updates = <String, dynamic>{'updatedAt': FieldValue.serverTimestamp()};
+    if (serviceName != null) updates['serviceName'] = serviceName;
+    if (slotLabel != null) updates['slotLabel'] = slotLabel;
+    if (price != null) updates['price'] = price;
+    if (updates.length == 1) return;
+    await ref.update(updates);
   }
 
   Future<void> addFavorite(String uid, String providerProfileId) async {

@@ -22,13 +22,13 @@ class ProviderDetailPage extends ConsumerWidget {
         data: (appUser) {
           if (appUser == null || appUser.isDemo) {
             return Scaffold(
-              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')),
               body: const Center(child: Text('Sign in to view your provider profile.')),
             );
           }
           if (fs == null) {
             return Scaffold(
-              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+              appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')),
               body: const Center(child: Text('Firebase not configured.')),
             );
           }
@@ -39,7 +39,7 @@ class ProviderDetailPage extends ConsumerWidget {
               final activeId = userProfile?.activeProviderProfileId;
               if (activeId == null || activeId.isEmpty) {
                 return Scaffold(
-                  appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+                  appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')),
                   body: const Center(child: Text('No provider profile yet. Create one from Profile.')),
                 );
               }
@@ -54,8 +54,8 @@ class ProviderDetailPage extends ConsumerWidget {
             },
           );
         },
-        loading: () => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator())),
-        error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: Center(child: Text('Error: $e'))),
+        loading: () => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator())),
+        error: (e, _) => Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')), body: Center(child: Text('Error: $e'))),
       );
     }
 
@@ -74,7 +74,7 @@ class ProviderDetailPage extends ConsumerWidget {
       builder: (context, snap) {
         final profile = snap.data;
         if (snap.connectionState == ConnectionState.waiting && profile == null) {
-          return Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator()));
+          return Scaffold(appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')), body: const Center(child: CircularProgressIndicator()));
         }
         if (profile == null && !snap.hasData) {
           final mock = mockProviderById(providerId);
@@ -101,7 +101,7 @@ class _ProviderDetailBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (profile == null) {
       return Scaffold(
-        appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()), title: const Text('Provider')),
+        appBar: AppBar(leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')), title: const Text('Provider')),
         body: const Center(child: Text('Provider not found')),
       );
     }
@@ -114,7 +114,7 @@ class _ProviderDetailBody extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.pop()),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/find')),
         title: const Text('Provider'),
       ),
       body: SingleChildScrollView(
