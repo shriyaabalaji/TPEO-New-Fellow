@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/provider_profile.dart';
 import '../../models/service.dart';
+import '../../models/user_profile.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
 import 'mock_providers.dart';
@@ -111,6 +112,7 @@ class _ProviderDetailBody extends ConsumerWidget {
     final reviewCount = p.reviewCount;
     final tags = p.tags;
     final fs = ref.watch(firestoreServiceProvider);
+    final ownerUid = p.ownerUid;
 
     return Scaffold(
       appBar: AppBar(
@@ -145,7 +147,7 @@ class _ProviderDetailBody extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const CircleAvatar(radius: 28),
+                  _ProviderAvatar(ownerUid: ownerUid),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -330,6 +332,32 @@ class _ProviderDetailBody extends ConsumerWidget {
               ),
             ),
           )).toList(),
+    );
+  }
+}
+
+class _ProviderAvatar extends ConsumerWidget {
+  const _ProviderAvatar({required this.ownerUid});
+
+  final String ownerUid;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final fs = ref.watch(firestoreServiceProvider);
+    if (fs == null || ownerUid.isEmpty) {
+      return const CircleAvatar(radius: 28, child: Icon(Icons.person, size: 28));
+    }
+
+    return StreamBuilder<UserProfile>(
+      stream: fs.streamUserProfile(ownerUid),
+      builder: (context, snap) {
+        final photoUrl = snap.data?.photoUrl;
+        return CircleAvatar(
+          radius: 28,
+          backgroundImage: (photoUrl != null && photoUrl.isNotEmpty) ? NetworkImage(photoUrl) : null,
+          child: (photoUrl == null || photoUrl.isEmpty) ? const Icon(Icons.person, size: 28) : null,
+        );
+      },
     );
   }
 }
