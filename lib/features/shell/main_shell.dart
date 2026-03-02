@@ -45,19 +45,70 @@ class MainShell extends ConsumerWidget {
 
     return Scaffold(
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index,
-        onTap: (i) => context.go(tabs[i].path),
-        backgroundColor: const Color(0xFF2D2D2D),
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        type: BottomNavigationBarType.fixed,
-        items: tabs
-            .map((t) => BottomNavigationBarItem(
-                  icon: Icon(loc.startsWith(t.path) ? t.selectedIcon : t.icon),
-                  label: t.label,
-                ))
-            .toList(),
+      extendBody: true,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.fromLTRB(48, 12, 48, 12),
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D2D2D),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                child: Row(
+                  children: List.generate(tabs.length, (i) {
+                    final t = tabs[i];
+                    final isSelected = i == index;
+                    return Expanded(
+                      child: InkWell(
+                        onTap: () => context.go(tabs[i].path),
+                        borderRadius: BorderRadius.circular(24),
+                        child: SizedBox(
+                          height: 48,
+                          child: Center(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.1),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Icon(
+                                loc.startsWith(t.path) ? t.selectedIcon : t.icon,
+                                size: 28,
+                                color: isSelected ? const Color(0xFF2D2D2D) : Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

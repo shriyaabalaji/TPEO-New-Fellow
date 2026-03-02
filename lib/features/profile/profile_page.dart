@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/constants/tag_options.dart';
 import '../../core/firestore/firestore_service.dart';
+import '../../core/storage/storage_service.dart';
 import '../../models/provider_profile.dart';
 import '../../models/user_profile.dart';
 import '../auth/auth_controller.dart';
@@ -500,6 +503,10 @@ class ProfilePage extends ConsumerWidget {
   ) {
     final nameCtrl = TextEditingController(text: p.businessName);
     final selectedTags = List<String>.from(p.tags);
+    String? bannerUrl = p.bannerUrl;
+    List<String> galleryUrls = List<String>.from(p.galleryUrls ?? []);
+    final storage = ref.read(storageServiceProvider);
+
     showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -514,6 +521,68 @@ class ProfilePage extends ConsumerWidget {
                   controller: nameCtrl,
                   decoration: const InputDecoration(labelText: 'Business name'),
                 ),
+                const SizedBox(height: 16),
+                Text('Banner image', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                if (bannerUrl != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(bannerUrl!, height: 80, width: double.infinity, fit: BoxFit.cover),
+                  ),
+                if (bannerUrl != null) const SizedBox(height: 4),
+                if (storage != null && storage.isAvailable)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add_photo_alternate, size: 20),
+                    label: Text(bannerUrl == null ? 'Add banner' : 'Change banner'),
+                    onPressed: () async {
+                      final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+                      if (xFile == null || !ctx.mounted) return;
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
+                      try {
+                        final url = await storage.uploadProviderBanner(p.providerProfileId, File(xFile.path));
+                        if (url != null && ctx.mounted) setState(() => bannerUrl = url);
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Banner updated')));
+                      } catch (e) {
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+                      }
+                    },
+                  ),
+                const SizedBox(height: 16),
+                Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                if (galleryUrls.isNotEmpty)
+                  SizedBox(
+                    height: 72,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: galleryUrls.length,
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(galleryUrls[i], width: 72, height: 72, fit: BoxFit.cover),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (galleryUrls.isNotEmpty) const SizedBox(height: 4),
+                if (storage != null && storage.isAvailable)
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.add_photo_alternate, size: 20),
+                    label: const Text('Add gallery photo'),
+                    onPressed: () async {
+                      final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+                      if (xFile == null || !ctx.mounted) return;
+                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
+                      try {
+                        final url = await storage.uploadProviderGalleryImage(p.providerProfileId, File(xFile.path));
+                        if (url != null && ctx.mounted) setState(() => galleryUrls.add(url));
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Photo added')));
+                      } catch (e) {
+                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+                      }
+                    },
+                  ),
                 const SizedBox(height: 16),
                 Text('Categories', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
@@ -553,6 +622,8 @@ class ProfilePage extends ConsumerWidget {
                     ownerUid: uid,
                     businessName: name,
                     tags: List<String>.from(selectedTags),
+                    bannerUrl: bannerUrl,
+                    galleryUrls: galleryUrls,
                   );
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // User avatar: only that user can read/write
+    match /users/{userId}/{allPaths=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    // Provider banner & gallery: anyone can read; only owner can write (ownerUid is in Firestore, we allow any authenticated user to write to providerProfiles - restrict in app or use a Cloud Function to validate ownership)
+    match /providerProfiles/{profileId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

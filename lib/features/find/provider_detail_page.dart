@@ -121,7 +121,23 @@ class _ProviderDetailBody extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const SizedBox(height: 120, child: Placeholder()),
+            SizedBox(
+              height: 180,
+              width: double.infinity,
+              child: (p.bannerUrl != null && p.bannerUrl!.isNotEmpty)
+                  ? Image.network(
+                      p.bannerUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                    )
+                  : (p.galleryUrls?.isNotEmpty == true)
+                      ? Image.network(
+                          p.galleryUrls!.first,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+                        )
+                      : Container(color: Colors.grey.shade300),
+            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
@@ -183,33 +199,39 @@ class _ProviderDetailBody extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
-                  TextButton(onPressed: () {}, child: const Text('See all')),
-                ],
-              ),
-            ),
-            SizedBox(
-              height: 100,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
+            if (p.galleryUrls != null && p.galleryUrls!.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: 4,
-                itemBuilder: (_, i) => Container(
-                  width: 100,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(8),
+                child: Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: p.galleryUrls!.length,
+                  itemBuilder: (_, i) => Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        p.galleryUrls![i],
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 100,
+                          height: 100,
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
+            ],
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),

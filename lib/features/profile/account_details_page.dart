@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/firestore/firestore_service.dart';
+import '../../core/storage/storage_service.dart';
 import '../../models/user_profile.dart';
 import '../auth/auth_controller.dart';
 import '../auth/effective_user_provider.dart';
@@ -55,6 +58,7 @@ class AccountDetailsPage extends ConsumerWidget {
             final username = userProfile?.username ?? '';
             final email = appUser.email;
 
+            final photoUrl = userProfile?.photoUrl ?? appUser.photoUrl;
             return Scaffold(
               appBar: AppBar(
                 leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
@@ -63,6 +67,21 @@ class AccountDetailsPage extends ConsumerWidget {
               body: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  ListTile(
+                    leading: CircleAvatar(
+                      radius: 28,
+                      backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
+                          ? NetworkImage(photoUrl)
+                          : null,
+                      child: (photoUrl == null || photoUrl.isEmpty)
+                          ? const Icon(Icons.person, size: 32)
+                          : null,
+                    ),
+                    title: const Text('Profile photo'),
+                    subtitle: const Text('Tap to change'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => _pickAndUploadProfilePhoto(context, ref, appUser.uid, fs),
+                  ),
                   ListTile(
                     title: const Text('Name'),
                     subtitle: Text(displayName.isNotEmpty ? displayName : 'Not set'),
@@ -202,4 +221,39 @@ void showEditUsernameDialog(
         ],
       ),
     );
+}
+
+Future<void> _pickAndUploadProfilePhoto(
+  BuildContext context,
+  WidgetRef ref,
+  String uid,
+  FirestoreService fs,
+) async {
+  final storage = ref.read(storageServiceProvider);
+  if (storage == null || !storage.isAvailable) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Photo upload not available')),
+      );
+    }
+    return;
+  }
+  final picker = ImagePicker();
+  final xFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+  if (xFile == null || !context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Uploading photo...')));
+  try {
+    final url = await storage.uploadUserAvatar(uid, File(xFile.path));
+    if (url == null || !context.mounted) return;
+    await fs.updateUserProfile(uid: uid, photoUrl: url);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile photo updated')));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload failed: ${e.toString()}')),
+      );
+    }
+  }
 }

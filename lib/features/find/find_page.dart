@@ -12,6 +12,7 @@ import 'mock_providers.dart';
 final findSearchQueryProvider = StateProvider<String>((ref) => '');
 final findSelectedCategoryProvider = StateProvider<String?>((ref) => null);
 final findPriceSortProvider = StateProvider<String?>((ref) => null); // 'low' | 'high' for filter sheet
+final findShowFavoritesOnlyProvider = StateProvider<bool>((ref) => false);
 
 class FindPage extends ConsumerWidget {
   const FindPage({super.key});
@@ -52,7 +53,11 @@ class FindPage extends ConsumerWidget {
                         stream: fs.streamUserProfile(uid),
                         builder: (context, userSnap) {
                           final favIds = userSnap.data?.favoriteProviderIds ?? [];
-                          return _buildBody(context, ref, filtered, favIds, uid, fs);
+                          final showFavOnly = ref.watch(findShowFavoritesOnlyProvider);
+                          final list = showFavOnly
+                              ? filtered.where((p) => favIds.contains(p.providerProfileId)).toList()
+                              : filtered;
+                          return _buildBody(context, ref, list, favIds, uid, fs);
                         },
                       )
                     : _buildBody(context, ref, filtered, null, null, fs);
@@ -99,11 +104,12 @@ class FindPage extends ConsumerWidget {
   ) {
     final selectedCategory = ref.watch(findSelectedCategoryProvider);
     final hasFilter = selectedCategory != null && selectedCategory.isNotEmpty;
+    final showFavoritesOnly = ref.watch(findShowFavoritesOnlyProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search bar + heart
+        // Search bar + heart (top right: toggle show only favorites)
         Container(
           color: Colors.white,
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -124,12 +130,19 @@ class FindPage extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               IconButton(
-                icon: const Icon(Icons.favorite_border),
-                onPressed: () => context.push('/profile/favorites'),
+                icon: Icon(showFavoritesOnly ? Icons.favorite : Icons.favorite_border),
+                onPressed: () {
+                  if (currentUid != null) {
+                    ref.read(findShowFavoritesOnlyProvider.notifier).state = !showFavoritesOnly;
+                  } else {
+                    context.push('/profile/favorites');
+                  }
+                },
                 style: IconButton.styleFrom(
                   backgroundColor: const Color(0xFFF5F5F5),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                color: showFavoritesOnly ? Colors.red : null,
               ),
             ],
           ),
@@ -170,11 +183,13 @@ class FindPage extends ConsumerWidget {
               else
                 Row(
                   children: [
-                    IconButton(
-                      icon: const Icon(Icons.tune),
-                      onPressed: () => _showFilterSheet(context, ref, selectedCategory),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    Builder(
+                      builder: (btnContext) => IconButton(
+                        icon: const Icon(Icons.tune),
+                        onPressed: () => _showFilterDropdown(btnContext, context, ref, selectedCategory),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                      ),
                     ),
                     Chip(
                       label: Text(selectedCategory),
@@ -209,7 +224,10 @@ class FindPage extends ConsumerWidget {
           child: providers.isEmpty
               ? Center(
                   child: Text(
-                    'No providers match your search.',
+                    showFavoritesOnly
+                        ? 'No favorited businesses. Tap the heart to show all.'
+                        : 'No providers match your search.',
+                    textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                         ),
@@ -271,65 +289,117 @@ class FindPage extends ConsumerWidget {
     }
   }
 
-  void _showFilterSheet(BuildContext context, WidgetRef ref, String? selectedCategory) {
+  void _showFilterDropdown(
+    BuildContext buttonContext,
+    BuildContext scaffoldContext,
+    WidgetRef ref,
+    String? selectedCategory,
+  ) {
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    final pos = box.localToGlobal(Offset.zero);
+    final size = box.size;
+    final screenWidth = MediaQuery.sizeOf(scaffoldContext).width;
+    const menuWidth = 280.0;
+    final left = (screenWidth - menuWidth) / 2;
+    final top = pos.dy + size.height + 8;
+
+    showDialog<void>(
+      context: scaffoldContext,
+      barrierColor: Colors.transparent,
+      builder: (ctx) => Stack(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(ctx),
+            behavior: HitTestBehavior.opaque,
+            child: const SizedBox.expand(),
+          ),
+          Positioned(
+            left: left,
+            top: top,
+            width: menuWidth,
+            child: Material(
+              elevation: 8,
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              child: _FilterDropdownContent(
+                selectedCategory: selectedCategory,
+                ref: ref,
+                onDismiss: () => Navigator.pop(ctx),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterDropdownContent extends StatelessWidget {
+  const _FilterDropdownContent({
+    required this.selectedCategory,
+    required this.ref,
+    required this.onDismiss,
+  });
+
+  final String? selectedCategory;
+  final WidgetRef ref;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
     final priceLow = ref.read(findPriceSortProvider) == 'low';
     final priceHigh = ref.read(findPriceSortProvider) == 'high';
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: const Color(0xFF2D2D2D),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Filters',
-                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(color: Colors.white),
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: StatefulBuilder(
+        builder: (context, setState) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _FilterDropdownRow(
+              label: 'Category',
+              value: selectedCategory ?? 'Any',
+              onTap: onDismiss,
+            ),
+            const SizedBox(height: 12),
+            _FilterDropdownRow(label: 'Ratings', value: 'Any', onTap: () {}),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              title: Text('Price: Low to High', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+              value: priceLow,
+              activeColor: Theme.of(context).colorScheme.primary,
+              onChanged: (v) => setState(() {
+                ref.read(findPriceSortProvider.notifier).state = v == true ? 'low' : null;
+              }),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            CheckboxListTile(
+              title: Text('Price: High to Low', style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
+              value: priceHigh,
+              activeColor: Theme.of(context).colorScheme.primary,
+              onChanged: (v) => setState(() {
+                ref.read(findPriceSortProvider.notifier).state = v == true ? 'high' : null;
+              }),
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 48,
+              child: FilledButton(
+                onPressed: onDismiss,
+                child: const Text('Filter Results'),
               ),
-              const SizedBox(height: 20),
-              _FilterRow(label: 'Category', value: selectedCategory ?? 'Any', onTap: () => Navigator.pop(ctx)),
-              const SizedBox(height: 12),
-              _FilterRow(label: 'Ratings', value: 'Any', onTap: () {}),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                title: const Text('Price: Low to High', style: TextStyle(color: Colors.white)),
-                value: priceLow,
-                activeColor: Theme.of(ctx).colorScheme.primary,
-                onChanged: (v) => setState(() {
-                  ref.read(findPriceSortProvider.notifier).state = v == true ? 'low' : null;
-                }),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              CheckboxListTile(
-                title: const Text('Price: High to Low', style: TextStyle(color: Colors.white)),
-                value: priceHigh,
-                activeColor: Theme.of(ctx).colorScheme.primary,
-                onChanged: (v) => setState(() {
-                  ref.read(findPriceSortProvider.notifier).state = v == true ? 'high' : null;
-                }),
-                controlAffinity: ListTileControlAffinity.leading,
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 48,
-                child: FilledButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Filter Results'),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _FilterRow extends StatelessWidget {
-  const _FilterRow({required this.label, required this.value, required this.onTap});
+class _FilterDropdownRow extends StatelessWidget {
+  const _FilterDropdownRow({required this.label, required this.value, required this.onTap});
 
   final String label;
   final String value;
@@ -344,12 +414,12 @@ class _FilterRow extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('$label', style: const TextStyle(color: Colors.white70)),
+            Text(label, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8))),
             Row(
               children: [
-                Text(value, style: const TextStyle(color: Colors.white)),
+                Text(value, style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
+                Icon(Icons.chevron_right, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6), size: 20),
               ],
             ),
           ],
@@ -372,6 +442,18 @@ class _ProviderProfileCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onFavoriteTap;
 
+  Widget _buildCardImage(ProviderProfile profile) {
+    final url = profile.bannerUrl ?? (profile.galleryUrls?.isNotEmpty == true ? profile.galleryUrls!.first : null);
+    if (url == null || url.isEmpty) {
+      return Container(color: Colors.grey.shade300);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade300),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
@@ -388,7 +470,7 @@ class _ProviderProfileCard extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Container(color: Colors.grey.shade300),
+                  _buildCardImage(profile),
                   if (onFavoriteTap != null)
                     Positioned(
                       bottom: 8,

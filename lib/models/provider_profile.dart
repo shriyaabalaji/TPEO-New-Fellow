@@ -9,6 +9,8 @@ class ProviderProfile {
   final int reviewCount;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? bannerUrl;
+  final List<String>? galleryUrls;
 
   ProviderProfile({
     required this.providerProfileId,
@@ -21,6 +23,8 @@ class ProviderProfile {
     this.reviewCount = 0,
     this.createdAt,
     this.updatedAt,
+    this.bannerUrl,
+    this.galleryUrls,
   });
 
   Map<String, dynamic> toMap() => {
@@ -34,6 +38,8 @@ class ProviderProfile {
         'reviewCount': reviewCount,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'bannerUrl': bannerUrl,
+        'galleryUrls': galleryUrls ?? [],
       };
 
   factory ProviderProfile.fromMap(Map<String, dynamic> m) => ProviderProfile(
@@ -47,5 +53,7 @@ class ProviderProfile {
         reviewCount: (m['reviewCount'] as int?) ?? 0,
         createdAt: m['createdAt'] is DateTime ? m['createdAt'] as DateTime : null,
         updatedAt: m['updatedAt'] is DateTime ? m['updatedAt'] as DateTime : null,
+        bannerUrl: m['bannerUrl'] as String?,
+        galleryUrls: (m['galleryUrls'] as List<dynamic>?)?.map((e) => e as String).toList(),
       );
 }

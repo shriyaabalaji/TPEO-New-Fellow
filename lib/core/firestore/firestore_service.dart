@@ -101,6 +101,8 @@ class FirestoreService {
     List<String>? tags,
     Map<String, dynamic>? contact,
     Map<String, dynamic>? location,
+    String? bannerUrl,
+    List<String>? galleryUrls,
   }) async {
     final ref = _db.collection(FSPaths.providerProfiles).doc(providerProfileId);
     final doc = await ref.get();
@@ -111,6 +113,8 @@ class FirestoreService {
     if (tags != null) updates['tags'] = tags;
     if (contact != null) updates['contact'] = contact;
     if (location != null) updates['location'] = location;
+    if (bannerUrl != null) updates['bannerUrl'] = bannerUrl;
+    if (galleryUrls != null) updates['galleryUrls'] = galleryUrls;
     if (updates.length == 1) return;
     await ref.update(updates);
   }
