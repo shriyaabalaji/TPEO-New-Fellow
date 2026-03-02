@@ -208,11 +208,6 @@ class ProfilePage extends ConsumerWidget {
                 onTap: () => context.push('/profile/my-services'),
               ),
               ListTile(
-                title: const Text('Public Profile'),
-                trailing: const Icon(Icons.chevron_right, size: 22),
-                onTap: () => context.push('/profile/public'),
-              ),
-              ListTile(
                 title: const Text('Availability'),
                 trailing: const Icon(Icons.chevron_right, size: 22),
                 onTap: () => context.push('/profile/availability'),
