@@ -70,6 +70,7 @@ class ProfilePage extends ConsumerWidget {
     final displayName = userProfile?.displayName ?? user.displayName;
     final photoUrl = userProfile?.photoUrl ?? user.photoUrl;
     final nameForAvatar = displayName.isNotEmpty ? displayName : '?';
+    final activeProviderProfileId = userProfile?.activeProviderProfileId;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
@@ -176,7 +177,10 @@ class ProfilePage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 24),
-            if (viewingAsProvider) _buildProviderContent(context, ref, user, providerList, hasProviderProfile) else _buildConsumerContent(context),
+            if (viewingAsProvider)
+              _buildProviderContent(context, ref, user, activeProviderProfileId, providerList, hasProviderProfile)
+            else
+              _buildConsumerContent(context),
             const SizedBox(height: 24),
             const Divider(),
             Text('My Account', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
@@ -202,11 +206,6 @@ class ProfilePage extends ConsumerWidget {
                 title: const Text('My Services'),
                 trailing: const Icon(Icons.chevron_right, size: 22),
                 onTap: () => context.push('/profile/my-services'),
-              ),
-              ListTile(
-                title: const Text('Public Profile'),
-                trailing: const Icon(Icons.chevron_right, size: 22),
-                onTap: () => context.push('/profile/public'),
               ),
               ListTile(
                 title: const Text('Availability'),
@@ -284,7 +283,14 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildProviderContent(BuildContext context, WidgetRef ref, AppUser user, List<ProviderProfile> providerList, bool hasProviderProfile) {
+  Widget _buildProviderContent(
+    BuildContext context,
+    WidgetRef ref,
+    AppUser user,
+    String? activeProviderProfileId,
+    List<ProviderProfile> providerList,
+    bool hasProviderProfile,
+  ) {
     if (user.isDemo) {
       return Padding(
         padding: const EdgeInsets.only(top: 8),
@@ -367,12 +373,27 @@ class ProfilePage extends ConsumerWidget {
             children: [
               Text('Your provider profiles', style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 8),
-              ...providerList.map((p) => ListTile(
-                    title: Text(p.businessName),
-                    subtitle: Text(p.providerProfileId),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
-                  )),
+              ...providerList.map((p) {
+                final isActive = p.providerProfileId == activeProviderProfileId;
+                return ListTile(
+                  leading: Icon(
+                    isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                  title: Text(
+                    p.businessName,
+                    style: isActive
+                        ? Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)
+                        : Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  subtitle: isActive ? const Text('Active profile') : Text(p.providerProfileId),
+                  trailing: const Icon(Icons.chevron_right),
+                  selected: isActive,
+                  selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
+                );
+              }),
               OutlinedButton(
                 onPressed: () => _showCreateProviderDialog(context, ref),
                 child: const Text('Create Provider Account'),
@@ -532,8 +553,10 @@ class ProfilePage extends ConsumerWidget {
     final nameCtrl = TextEditingController(text: p.businessName);
     final selectedTags = List<String>.from(p.tags);
     String? bannerUrl = p.bannerUrl;
+    File? bannerFile;
     List<String> galleryUrls = List<String>.from(p.galleryUrls ?? []);
     final aboutCtrl = TextEditingController(text: p.about ?? '');
+    final List<File> newGalleryFiles = [];
     final storage = ref.read(storageServiceProvider);
 
     showDialog<void>(
@@ -556,11 +579,30 @@ class ProfilePage extends ConsumerWidget {
                     const SizedBox(height: 16),
                     Text('Banner image', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
-                    if (bannerUrl != null)
+                    if (bannerFile != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: GestureDetector(
-                          onTap: () => _showImageLightbox(context, bannerUrl!),
+                          onTap: () => _showImageLightbox(
+                            context,
+                            Image.file(bannerFile!, fit: BoxFit.contain),
+                          ),
+                          child: Image.file(
+                            bannerFile!,
+                            height: 80,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    else if (bannerUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: GestureDetector(
+                          onTap: () => _showImageLightbox(
+                            context,
+                            Image.network(bannerUrl!, fit: BoxFit.contain),
+                          ),
                           child: Image.network(
                             bannerUrl!,
                             height: 80,
@@ -569,50 +611,32 @@ class ProfilePage extends ConsumerWidget {
                           ),
                         ),
                       ),
-                    if (bannerUrl != null) const SizedBox(height: 4),
+                    if (bannerUrl != null || bannerFile != null) const SizedBox(height: 4),
                     if (storage != null && storage.isAvailable)
                       OutlinedButton.icon(
                         icon: const Icon(Icons.add_photo_alternate, size: 20),
-                        label: Text(bannerUrl == null ? 'Add banner' : 'Change banner'),
+                        label: Text(bannerUrl == null && bannerFile == null ? 'Add banner' : 'Change banner'),
                         onPressed: () async {
                           final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
                           if (xFile == null || !ctx.mounted) return;
-                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
-                          try {
-                            final url = await storage.uploadProviderBanner(p.providerProfileId, File(xFile.path));
-                            if (url != null && ctx.mounted) {
-                              setState(() => bannerUrl = url);
-                              await fs.updateProviderProfile(
-                                providerProfileId: p.providerProfileId,
-                                ownerUid: uid,
-                                bannerUrl: url,
-                              );
-                            }
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Banner updated')),
-                              );
-                            }
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text('Upload failed: $e')),
-                              );
-                            }
-                          }
+                          setState(() {
+                            bannerFile = File(xFile.path);
+                          });
                         },
                       ),
                     const SizedBox(height: 16),
                     Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
-                    if (galleryUrls.isNotEmpty)
+                    if (galleryUrls.isNotEmpty || newGalleryFiles.isNotEmpty)
                       SizedBox(
                         height: 72,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
-                          itemCount: galleryUrls.length,
+                          itemCount: galleryUrls.length + newGalleryFiles.length,
                           itemBuilder: (context, i) {
-                            final url = galleryUrls[i];
+                            final isExisting = i < galleryUrls.length;
+                            final url = isExisting ? galleryUrls[i] : null;
+                            final file = isExisting ? null : newGalleryFiles[i - galleryUrls.length];
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: Stack(
@@ -620,13 +644,25 @@ class ProfilePage extends ConsumerWidget {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: GestureDetector(
-                                      onTap: () => _showImageLightbox(context, url),
-                                      child: Image.network(
-                                        url,
-                                        width: 72,
-                                        height: 72,
-                                        fit: BoxFit.cover,
+                                      onTap: () => _showImageLightbox(
+                                        context,
+                                        isExisting
+                                            ? Image.network(url!, fit: BoxFit.contain)
+                                            : Image.file(file!, fit: BoxFit.contain),
                                       ),
+                                      child: isExisting
+                                          ? Image.network(
+                                              url!,
+                                              width: 72,
+                                              height: 72,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              file!,
+                                              width: 72,
+                                              height: 72,
+                                              fit: BoxFit.cover,
+                                            ),
                                     ),
                                   ),
                                   Positioned(
@@ -637,22 +673,14 @@ class ProfilePage extends ConsumerWidget {
                                       shape: const CircleBorder(),
                                       child: InkWell(
                                         customBorder: const CircleBorder(),
-                                        onTap: () async {
-                                          galleryUrls.removeAt(i);
-                                          setState(() {});
-                                          try {
-                                            await fs.updateProviderProfile(
-                                              providerProfileId: p.providerProfileId,
-                                              ownerUid: uid,
-                                              galleryUrls: List<String>.from(galleryUrls),
-                                            );
-                                          } catch (e) {
-                                            if (ctx.mounted) {
-                                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                                SnackBar(content: Text('Failed to delete photo: $e')),
-                                              );
+                                        onTap: () {
+                                          setState(() {
+                                            if (isExisting) {
+                                              galleryUrls.removeAt(i);
+                                            } else {
+                                              newGalleryFiles.removeAt(i - galleryUrls.length);
                                             }
-                                          }
+                                          });
                                         },
                                         child: const Padding(
                                           padding: EdgeInsets.all(2),
@@ -667,7 +695,7 @@ class ProfilePage extends ConsumerWidget {
                           },
                         ),
                       ),
-                    if (galleryUrls.isNotEmpty) const SizedBox(height: 4),
+                    if (galleryUrls.isNotEmpty || newGalleryFiles.isNotEmpty) const SizedBox(height: 4),
                     if (storage != null && storage.isAvailable)
                       OutlinedButton.icon(
                         icon: const Icon(Icons.add_photo_alternate, size: 20),
@@ -675,29 +703,9 @@ class ProfilePage extends ConsumerWidget {
                         onPressed: () async {
                           final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
                           if (xFile == null || !ctx.mounted) return;
-                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
-                          try {
-                            final url = await storage.uploadProviderGalleryImage(p.providerProfileId, File(xFile.path));
-                            if (url != null && ctx.mounted) {
-                              setState(() => galleryUrls.add(url));
-                              await fs.updateProviderProfile(
-                                providerProfileId: p.providerProfileId,
-                                ownerUid: uid,
-                                galleryUrls: galleryUrls,
-                              );
-                            }
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(content: Text('Photo added')),
-                              );
-                            }
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                SnackBar(content: Text('Upload failed: $e')),
-                              );
-                            }
-                          }
+                          setState(() {
+                            newGalleryFiles.add(File(xFile.path));
+                          });
                         },
                       ),
                     const SizedBox(height: 16),
@@ -747,13 +755,26 @@ class ProfilePage extends ConsumerWidget {
                 if (name.isEmpty) return;
                 Navigator.pop(ctx);
                 try {
+                  String? bannerUrlToSave = bannerUrl;
+                  if (bannerFile != null && storage != null && storage.isAvailable) {
+                    bannerUrlToSave = await storage.uploadProviderBanner(p.providerProfileId, bannerFile!);
+                  }
+
+                  final updatedGalleryUrls = List<String>.from(galleryUrls);
+                  if (storage != null && storage.isAvailable && newGalleryFiles.isNotEmpty) {
+                    for (final f in newGalleryFiles) {
+                      final url = await storage.uploadProviderGalleryImage(p.providerProfileId, f);
+                      if (url != null) updatedGalleryUrls.add(url);
+                    }
+                  }
+
                   await fs.updateProviderProfile(
                     providerProfileId: p.providerProfileId,
                     ownerUid: uid,
                     businessName: name,
                     tags: List<String>.from(selectedTags),
-                    bannerUrl: bannerUrl,
-                    galleryUrls: galleryUrls,
+                    bannerUrl: bannerUrlToSave,
+                    galleryUrls: updatedGalleryUrls,
                     about: aboutCtrl.text.trim().isEmpty ? null : aboutCtrl.text.trim(),
                   );
                   if (context.mounted) {
@@ -824,7 +845,7 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-void _showImageLightbox(BuildContext context, String url) {
+void _showImageLightbox(BuildContext context, Widget image) {
   showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.9),
@@ -834,10 +855,7 @@ void _showImageLightbox(BuildContext context, String url) {
         backgroundColor: Colors.transparent,
         body: Center(
           child: InteractiveViewer(
-            child: Image.network(
-              url,
-              fit: BoxFit.contain,
-            ),
+            child: image,
           ),
         ),
       ),
