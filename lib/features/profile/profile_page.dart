@@ -508,104 +508,144 @@ class ProfilePage extends ConsumerWidget {
 
     showDialog<void>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (ctx) {
+        return AlertDialog(
           title: const Text('Edit provider'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'Business name'),
-                ),
-                const SizedBox(height: 16),
-                Text('Banner image', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
-                if (bannerUrl != null)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(bannerUrl!, height: 80, width: double.infinity, fit: BoxFit.cover),
-                  ),
-                if (bannerUrl != null) const SizedBox(height: 4),
-                if (storage != null && storage.isAvailable)
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.add_photo_alternate, size: 20),
-                    label: Text(bannerUrl == null ? 'Add banner' : 'Change banner'),
-                    onPressed: () async {
-                      final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
-                      if (xFile == null || !ctx.mounted) return;
-                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
-                      try {
-                        final url = await storage.uploadProviderBanner(p.providerProfileId, File(xFile.path));
-                        if (url != null && ctx.mounted) setState(() => bannerUrl = url);
-                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Banner updated')));
-                      } catch (e) {
-                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-                      }
-                    },
-                  ),
-                const SizedBox(height: 16),
-                Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 4),
-                if (galleryUrls.isNotEmpty)
-                  SizedBox(
-                    height: 72,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: galleryUrls.length,
-                      itemBuilder: (context, i) => Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(galleryUrls[i], width: 72, height: 72, fit: BoxFit.cover),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: StatefulBuilder(
+              builder: (context, setState) => SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(labelText: 'Business name'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('Banner image', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    if (bannerUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(bannerUrl!, height: 80, width: double.infinity, fit: BoxFit.cover),
+                      ),
+                    if (bannerUrl != null) const SizedBox(height: 4),
+                    if (storage != null && storage.isAvailable)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add_photo_alternate, size: 20),
+                        label: Text(bannerUrl == null ? 'Add banner' : 'Change banner'),
+                        onPressed: () async {
+                          final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+                          if (xFile == null || !ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
+                          try {
+                            final url = await storage.uploadProviderBanner(p.providerProfileId, File(xFile.path));
+                            if (url != null && ctx.mounted) {
+                              setState(() => bannerUrl = url);
+                              await fs.updateProviderProfile(
+                                providerProfileId: p.providerProfileId,
+                                ownerUid: uid,
+                                bannerUrl: url,
+                              );
+                            }
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Banner updated')),
+                              );
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Upload failed: $e')),
+                              );
+                            }
+                          }
+                        },
+                      ),
+                    const SizedBox(height: 16),
+                    Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 4),
+                    if (galleryUrls.isNotEmpty)
+                      SizedBox(
+                        height: 72,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: galleryUrls.length,
+                          itemBuilder: (context, i) => Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                galleryUrls[i],
+                                width: 72,
+                                height: 72,
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                if (galleryUrls.isNotEmpty) const SizedBox(height: 4),
-                if (storage != null && storage.isAvailable)
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.add_photo_alternate, size: 20),
-                    label: const Text('Add gallery photo'),
-                    onPressed: () async {
-                      final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
-                      if (xFile == null || !ctx.mounted) return;
-                      ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
-                      try {
-                        final url = await storage.uploadProviderGalleryImage(p.providerProfileId, File(xFile.path));
-                        if (url != null && ctx.mounted) setState(() => galleryUrls.add(url));
-                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Photo added')));
-                      } catch (e) {
-                        if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-                      }
-                    },
-                  ),
-                const SizedBox(height: 16),
-                Text('Categories', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: tagOptions.map((tag) {
-                    final isSelected = selectedTags.contains(tag);
-                    return FilterChip(
-                      label: Text(tag),
-                      selected: isSelected,
-                      onSelected: (_) {
-                        setState(() {
-                          if (isSelected) {
-                            selectedTags.remove(tag);
-                          } else {
-                            selectedTags.add(tag);
+                    if (galleryUrls.isNotEmpty) const SizedBox(height: 4),
+                    if (storage != null && storage.isAvailable)
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.add_photo_alternate, size: 20),
+                        label: const Text('Add gallery photo'),
+                        onPressed: () async {
+                          final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+                          if (xFile == null || !ctx.mounted) return;
+                          ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Uploading...')));
+                          try {
+                            final url = await storage.uploadProviderGalleryImage(p.providerProfileId, File(xFile.path));
+                            if (url != null && ctx.mounted) {
+                              setState(() => galleryUrls.add(url));
+                              await fs.updateProviderProfile(
+                                providerProfileId: p.providerProfileId,
+                                ownerUid: uid,
+                                galleryUrls: galleryUrls,
+                              );
+                            }
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                const SnackBar(content: Text('Photo added')),
+                              );
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Upload failed: $e')),
+                              );
+                            }
                           }
-                        });
-                      },
-                    );
-                  }).toList(),
+                        },
+                      ),
+                    const SizedBox(height: 16),
+                    Text('Categories', style: Theme.of(context).textTheme.titleSmall),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: tagOptions.map((tag) {
+                        final isSelected = selectedTags.contains(tag);
+                        return FilterChip(
+                          label: Text(tag),
+                          selected: isSelected,
+                          onSelected: (_) {
+                            setState(() {
+                              if (isSelected) {
+                                selectedTags.remove(tag);
+                              } else {
+                                selectedTags.add(tag);
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           actions: [
@@ -640,8 +680,8 @@ class ProfilePage extends ConsumerWidget {
               child: const Text('Save'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
