@@ -55,7 +55,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '904562520941',
     projectId: 'tpeo-nf-project',
     storageBucket: 'tpeo-nf-project.firebasestorage.app',
-    iosBundleId: 'com.example.tpeoNewFellow',
+    iosBundleId: 'com.tpeo.newfellow',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -64,6 +64,6 @@ class DefaultFirebaseOptions {
     messagingSenderId: '904562520941',
     projectId: 'tpeo-nf-project',
     storageBucket: 'tpeo-nf-project.firebasestorage.app',
-    iosBundleId: 'com.example.tpeoNewFellow',
+    iosBundleId: 'com.tpeo.newfellow',
   );
 }

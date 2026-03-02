@@ -36,7 +36,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   String? _validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) return 'Enter your email';
     if (!isUtEmail(value.trim())) {
-      return 'Use an @my.utexas.edu account';
+      return 'Use an @utexas.edu account';
     }
     return null;
   }
@@ -115,7 +115,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         } else if (s.contains('weak-password')) {
           msg = 'Use at least 6 characters for password';
         } else if (s.contains('invalid-email')) {
-          msg = 'Use a valid @my.utexas.edu email';
+          msg = 'Use a valid @utexas.edu email';
         } else {
           msg = e.toString().replaceFirst(RegExp(r'^Exception:?\s*'), '');
         }
@@ -152,7 +152,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    'You must use an @my.utexas.edu account.',
+                    'You must use an @utexas.edu account.',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
@@ -202,6 +202,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         label: const Text('Continue to onboarding'),
                       ),
                       const SizedBox(height: 16),
+                      TextButton.icon(
+                        onPressed: () async {
+                          await ref.read(authServiceProvider)?.signOut();
+                          if (!mounted) return;
+                          setState(() {
+                            _showLanding = true;
+                            _isSignUp = false;
+                          });
+                        },
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Back to login'),
+                      ),
+                      const SizedBox(height: 8),
                       OutlinedButton.icon(
                         onPressed: () async {
                           try {
@@ -349,7 +362,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Use your @my.utexas.edu account',
+                'Use your @utexas.edu account',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
@@ -362,7 +375,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  hintText: 'you@my.utexas.edu',
+                  hintText: '@utexas.edu',
                   border: OutlineInputBorder(),
                 ),
                 validator: _validateEmail,

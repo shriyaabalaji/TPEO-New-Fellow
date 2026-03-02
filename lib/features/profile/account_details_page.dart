@@ -142,7 +142,7 @@ void showEditNameDialog(
               } catch (e) {
                 if (context.mounted) {
                   final msg = e.toString().toLowerCase().contains('permission') || e.toString().contains('PERMISSION_DENIED')
-                      ? 'Permission denied. Make sure your email is verified and you\'re signed in with @my.utexas.edu. Try signing out and back in.'
+                      ? 'Permission denied. Make sure your email is verified and you\'re signed in with @utexas.edu. Try signing out and back in.'
                       : 'Failed: $e';
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                 }
@@ -191,7 +191,7 @@ void showEditUsernameDialog(
               } catch (e) {
                 if (context.mounted) {
                   final msg = e.toString().toLowerCase().contains('permission') || e.toString().contains('PERMISSION_DENIED')
-                      ? 'Permission denied. Make sure your email is verified and you\'re signed in with @my.utexas.edu. Try signing out and back in.'
+                      ? 'Permission denied. Make sure your email is verified and you\'re signed in with @utexas.edu. Try signing out and back in.'
                       : 'Failed: $e';
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
                 }

@@ -42,7 +42,7 @@ flutter run -d ios
 ```
 
 Notes
-- Sign-in uses **email/password** (Firebase Authentication). The app and Firestore rules require **@my.utexas.edu** addresses only.
+- Sign-in uses **email/password** (Firebase Authentication). The app and Firestore rules require **@utexas.edu** addresses only.
 - In [Firebase Console](https://console.firebase.google.com) → **Authentication** → **Sign-in method** → enable **Email/Password**.
 - New users must verify their email (link sent on sign-up) before using the app.
 # TPEO-New-Fellow
