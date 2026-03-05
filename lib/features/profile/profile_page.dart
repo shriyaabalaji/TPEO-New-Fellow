@@ -13,6 +13,7 @@ import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
 import 'view_mode_provider.dart';
 import '../find/mock_providers.dart';
+import '../../widgets/image_lightbox.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -583,7 +584,7 @@ class ProfilePage extends ConsumerWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: GestureDetector(
-                          onTap: () => _showImageLightbox(
+                          onTap: () => showImageLightbox(
                             context,
                             Image.file(bannerFile!, fit: BoxFit.contain),
                           ),
@@ -599,7 +600,7 @@ class ProfilePage extends ConsumerWidget {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: GestureDetector(
-                          onTap: () => _showImageLightbox(
+                          onTap: () => showImageLightbox(
                             context,
                             Image.network(bannerUrl!, fit: BoxFit.contain),
                           ),
@@ -644,12 +645,17 @@ class ProfilePage extends ConsumerWidget {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(8),
                                     child: GestureDetector(
-                                      onTap: () => _showImageLightbox(
-                                        context,
-                                        isExisting
-                                            ? Image.network(url!, fit: BoxFit.contain)
-                                            : Image.file(file!, fit: BoxFit.contain),
-                                      ),
+                                      onTap: () {
+                                        final allImages = <Widget>[
+                                          ...galleryUrls.map((u) => Image.network(u, fit: BoxFit.contain)),
+                                          ...newGalleryFiles.map((f) => Image.file(f, fit: BoxFit.contain)),
+                                        ];
+                                        if (allImages.length > 1) {
+                                          showGalleryLightbox(context, images: allImages, initialIndex: i);
+                                        } else {
+                                          showImageLightbox(context, allImages.single);
+                                        }
+                                      },
                                       child: isExisting
                                           ? Image.network(
                                               url!,
@@ -845,21 +851,4 @@ class ProfilePage extends ConsumerWidget {
     );
   }
 
-void _showImageLightbox(BuildContext context, Widget image) {
-  showDialog<void>(
-    context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.9),
-    builder: (ctx) => GestureDetector(
-      onTap: () => Navigator.pop(ctx),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: InteractiveViewer(
-            child: image,
-          ),
-        ),
-      ),
-    ),
-  );
-}
 }

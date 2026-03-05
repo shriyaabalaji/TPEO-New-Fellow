@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/provider_profile.dart';
 import '../../models/service.dart';
 import '../../models/user_profile.dart';
+import '../../widgets/image_lightbox.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
 import 'mock_providers.dart';
@@ -133,7 +134,7 @@ class _ProviderDetailBody extends ConsumerWidget {
                       : (p.galleryUrls?.isNotEmpty == true ? p.galleryUrls!.first : null);
                   if (url == null) return Container(color: Colors.grey.shade300);
                   return GestureDetector(
-                    onTap: () => _showImageLightbox(context, url),
+                    onTap: () => showImageLightbox(context, Image.network(url, fit: BoxFit.contain)),
                     child: Image.network(
                       url,
                       fit: BoxFit.cover,
@@ -224,7 +225,16 @@ class _ProviderDetailBody extends ConsumerWidget {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: GestureDetector(
-                          onTap: () => _showImageLightbox(_, url),
+                          onTap: () {
+                            final images = p.galleryUrls!
+                                .map((u) => Image.network(u, fit: BoxFit.contain))
+                                .toList();
+                            showGalleryLightbox(
+                              context,
+                              images: images,
+                              initialIndex: i,
+                            );
+                          },
                           child: Image.network(
                             url,
                             width: 100,
@@ -364,26 +374,6 @@ class _ProviderAvatar extends ConsumerWidget {
   }
 }
 
-void _showImageLightbox(BuildContext context, String url) {
-  showDialog<void>(
-    context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.9),
-    builder: (ctx) => GestureDetector(
-      onTap: () => Navigator.pop(ctx),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.network(
-              url,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
 class _FavoriteButton extends ConsumerWidget {
   const _FavoriteButton({required this.providerProfileId});
 

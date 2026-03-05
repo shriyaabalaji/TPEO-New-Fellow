@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/tag_options.dart';
+import '../../widgets/image_lightbox.dart';
 import '../../core/firestore/firestore_service.dart';
 import '../../models/user_profile.dart';
 import '../../models/provider_profile.dart';
@@ -448,7 +449,7 @@ class _ProviderProfileCard extends StatelessWidget {
       return Container(color: Colors.grey.shade300);
     }
     return GestureDetector(
-      onTap: () => _showImageLightbox(context, url),
+      onTap: () => showImageLightbox(context, Image.network(url, fit: BoxFit.contain)),
       child: Image.network(
         url,
         fit: BoxFit.cover,
@@ -535,23 +536,3 @@ class _ProviderProfileCard extends StatelessWidget {
   }
 }
 
-void _showImageLightbox(BuildContext context, String url) {
-  showDialog<void>(
-    context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.9),
-    builder: (ctx) => GestureDetector(
-      onTap: () => Navigator.pop(ctx),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: InteractiveViewer(
-            child: Image.network(
-              url,
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
-      ),
-    ),
-  );
-}
