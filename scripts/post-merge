@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Git post-merge hook: after every 'git pull', apply your local iOS bundle ID
+# so you don't have to fix signing every time.
+
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$REPO_ROOT" ] && [ -x "$REPO_ROOT/scripts/apply_local_bundle_id.sh" ] && "$REPO_ROOT/scripts/apply_local_bundle_id.sh"

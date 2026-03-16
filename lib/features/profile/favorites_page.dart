@@ -5,6 +5,7 @@ import '../../models/provider_profile.dart';
 import '../auth/effective_user_provider.dart';
 import '../find/mock_providers.dart';
 import 'provider_account_controller.dart';
+import '../../core/firestore/firestore_service.dart';
 
 class FavoritesPage extends ConsumerWidget {
   const FavoritesPage({super.key});
@@ -15,17 +16,33 @@ class FavoritesPage extends ConsumerWidget {
     final fs = ref.watch(firestoreServiceProvider);
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-        title: const Text('Favorites'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+          onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
+        ),
+        title: const Text(
+          'Saved Services',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.tune, size: 22),
+            onPressed: () {},
+          ),
+        ],
       ),
       body: effectiveUser.when(
         data: (appUser) {
           if (appUser == null) {
-            return const Center(child: Text('Sign in to see your favorites.'));
+            return const Center(child: Text('Sign in to see your saved services.'));
           }
           if (appUser.isDemo) {
-            return _buildGrid(context, ref, _mockAsList(), null, null);
+            return _SavedGrid(providers: _mockAsList(), uid: null, fs: null);
           }
           if (fs == null) {
             return const Center(child: Text('Firebase not configured.'));
@@ -39,7 +56,7 @@ class FavoritesPage extends ConsumerWidget {
                 builder: (context, providersSnap) {
                   final all = providersSnap.data ?? [];
                   final favorites = all.where((p) => favoriteIds.contains(p.providerProfileId)).toList();
-                  return _buildGrid(context, ref, favorites, appUser.uid, fs);
+                  return _SavedGrid(providers: favorites, uid: appUser.uid, fs: fs);
                 },
               );
             },
@@ -63,82 +80,175 @@ class FavoritesPage extends ConsumerWidget {
             ))
         .toList();
   }
+}
 
-  Widget _buildGrid(BuildContext context, WidgetRef ref, List<ProviderProfile> providers, String? uid, dynamic fs) {
+class _SavedGrid extends StatelessWidget {
+  const _SavedGrid({
+    required this.providers,
+    required this.uid,
+    required this.fs,
+  });
+
+  final List<ProviderProfile> providers;
+  final String? uid;
+  final FirestoreService? fs;
+
+  @override
+  Widget build(BuildContext context) {
     if (providers.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite_border, size: 64, color: Theme.of(context).colorScheme.outline),
+            Icon(Icons.favorite_border, size: 64, color: Colors.grey[300]),
             const SizedBox(height: 16),
-            Text('No favorites yet', style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              'No saved services yet',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Text(
-              uid != null ? 'Tap the heart on a provider to add them here.' : 'Demo: add favorites when signed in.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7)),
+              'Tap the heart on a provider to save them here.',
+              style: TextStyle(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
           ],
         ),
       );
     }
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.8,
-      ),
-      itemCount: providers.length,
-      itemBuilder: (_, i) {
-        final p = providers[i];
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () => context.push('/provider/${p.providerProfileId}'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: Text(
+            '${providers.length} Saved',
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 16,
+              crossAxisSpacing: 14,
+              childAspectRatio: 0.72,
+            ),
+            itemCount: providers.length,
+            itemBuilder: (_, i) => _SavedCard(
+              provider: providers[i],
+              uid: uid,
+              fs: fs,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SavedCard extends StatelessWidget {
+  const _SavedCard({
+    required this.provider,
+    required this.uid,
+    required this.fs,
+  });
+
+  final ProviderProfile provider;
+  final String? uid;
+  final FirestoreService? fs;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = provider.bannerUrl ??
+        (provider.galleryUrls != null && provider.galleryUrls!.isNotEmpty
+            ? provider.galleryUrls!.first
+            : null);
+
+    return GestureDetector(
+      onTap: () => context.push('/provider/${provider.providerProfileId}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image with heart overlay
+          Expanded(
+            child: Stack(
               children: [
-                Expanded(child: Container(color: Colors.grey.shade300)),
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          p.businessName,
-                          style: const TextStyle(fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (uid != null && fs != null)
-                        IconButton(
-                          icon: const Icon(Icons.favorite),
-                          color: Theme.of(context).colorScheme.error,
-                          onPressed: () async {
-                            try {
-                              await fs.removeFavorite(uid, p.providerProfileId);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Removed from favorites')));
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed: $e')));
-                              }
-                            }
-                          },
-                        ),
-                    ],
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: imageUrl != null
+                        ? Image.network(
+                            imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                Container(color: Colors.grey[200]),
+                          )
+                        : Container(color: Colors.grey[200]),
                   ),
                 ),
+                if (uid != null && fs != null)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: () async {
+                        try {
+                          await fs!.removeFavorite(uid!, provider.providerProfileId);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Removed from saved')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Failed: $e')),
+                            );
+                          }
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.favorite, size: 18, color: Colors.black87),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          Text(
+            provider.businessName,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 2),
+          Row(
+            children: [
+              const Icon(Icons.star, size: 14, color: Colors.black87),
+              const SizedBox(width: 3),
+              Text(
+                '${provider.ratingAvg.toStringAsFixed(1)} (${provider.reviewCount})',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Prices Vary',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+        ],
+      ),
     );
   }
 }

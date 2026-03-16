@@ -12,17 +12,20 @@ class _TabItem {
   final String label;
 }
 
-/// Consumer tabs: Home, Bookings, Profile. Provider can switch to consumer on Profile.
+/// Consumer tabs: Home, Bookings, Chat, Profile.
 const _consumerTabs = [
   _TabItem('/find', Icons.home_outlined, Icons.home, 'Home'),
   _TabItem('/appointments', Icons.calendar_today_outlined, Icons.calendar_today, 'Bookings'),
+  _TabItem('/chat', Icons.chat_bubble_outline, Icons.chat_bubble, 'Chat'),
   _TabItem('/profile', Icons.person_outline, Icons.person, 'Profile'),
 ];
 
-/// Provider tabs: Appointments, Availability, Profile (no Find — switch to consumer for that).
+/// Provider tabs: Home, Bookings, Chat, Schedule, Profile.
 const _providerTabs = [
-  _TabItem('/appointments', Icons.calendar_today_outlined, Icons.calendar_today, 'Appointments'),
-  _TabItem('/profile/availability', Icons.schedule_outlined, Icons.schedule, 'Availability'),
+  _TabItem('/find', Icons.home_outlined, Icons.home, 'Home'),
+  _TabItem('/appointments', Icons.calendar_today_outlined, Icons.calendar_today, 'Bookings'),
+  _TabItem('/chat', Icons.chat_bubble_outline, Icons.chat_bubble, 'Chat'),
+  _TabItem('/profile/availability', Icons.schedule_outlined, Icons.schedule, 'Schedule'),
   _TabItem('/profile', Icons.person_outline, Icons.person, 'Profile'),
 ];
 
@@ -47,7 +50,7 @@ class MainShell extends ConsumerWidget {
       body: child,
       extendBody: true,
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(48, 12, 48, 4),
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
         child: Material(
           color: Colors.transparent,
           child: Container(
@@ -66,7 +69,7 @@ class MainShell extends ConsumerWidget {
               top: false,
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
                 child: Row(
                   children: List.generate(tabs.length, (i) {
                     final t = tabs[i];
@@ -74,32 +77,27 @@ class MainShell extends ConsumerWidget {
                     return Expanded(
                       child: InkWell(
                         onTap: () => context.go(tabs[i].path),
-                        borderRadius: BorderRadius.circular(24),
-                        child: SizedBox(
-                          height: 48,
-                          child: Center(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isSelected ? Colors.white : Colors.transparent,
-                                borderRadius: BorderRadius.circular(24),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.1),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 1),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Icon(
+                        borderRadius: BorderRadius.circular(20),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
                                 loc.startsWith(t.path) ? t.selectedIcon : t.icon,
-                                size: 28,
-                                color: isSelected ? const Color(0xFF2D2D2D) : Colors.white70,
+                                size: 22,
+                                color: isSelected ? Colors.white : Colors.white54,
                               ),
-                            ),
+                              const SizedBox(height: 3),
+                              Text(
+                                t.label,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                                  color: isSelected ? Colors.white : Colors.white54,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),

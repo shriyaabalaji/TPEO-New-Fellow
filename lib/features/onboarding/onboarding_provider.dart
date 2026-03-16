@@ -23,4 +23,5 @@ final onboardingRoleProvider = StateProvider<String?>((ref) => null);
 final onboardingFirstNameProvider = StateProvider<String>((ref) => '');
 final onboardingLastNameProvider = StateProvider<String>((ref) => '');
 final onboardingUsernameProvider = StateProvider<String>((ref) => '');
+final onboardingPhotoPathProvider = StateProvider<String?>((ref) => null);
 final onboardingInterestsProvider = StateProvider<List<String>>((ref) => []);

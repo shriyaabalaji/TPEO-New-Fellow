@@ -11,8 +11,10 @@ import 'features/profile/profile_page.dart';
 import 'features/onboarding/role_screen.dart';
 import 'features/onboarding/name_screen.dart';
 import 'features/onboarding/username_screen.dart';
+import 'features/onboarding/photo_screen.dart';
 import 'features/onboarding/interests_screen.dart';
 import 'features/find/provider_detail_page.dart';
+import 'features/find/provider_about_page.dart';
 import 'features/booking/booking_page.dart';
 import 'features/profile/availability_page.dart';
 import 'features/profile/my_services_page.dart';
@@ -20,6 +22,11 @@ import 'features/profile/account_details_page.dart';
 import 'features/profile/favorites_page.dart';
 import 'features/profile/notifications_page.dart';
 import 'features/profile/public_profile_page.dart';
+import 'features/profile/business_setup_page.dart';
+import 'features/profile/business_profile_page.dart';
+import 'features/profile/team_members_page.dart';
+import 'features/chat/chat_list_page.dart';
+import 'features/chat/chat_detail_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -58,6 +65,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const UsernameScreen(),
       ),
       GoRoute(
+        path: '/onboarding/photo',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, __) => const PhotoScreen(),
+      ),
+      GoRoute(
         path: '/onboarding/interests',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, __) => const InterestsScreen(),
@@ -67,6 +79,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(path: '/find', builder: (_, __) => const FindPage()),
           GoRoute(path: '/appointments', builder: (_, __) => const AppointmentsPage()),
+          GoRoute(path: '/chat', builder: (_, __) => const ChatListPage()),
           GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
         ],
       ),
@@ -76,6 +89,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) {
           final id = state.pathParameters['id'] ?? '';
           return ProviderDetailPage(providerId: id);
+        },
+      ),
+      GoRoute(
+        path: '/provider/:id/about',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) {
+          final id = state.pathParameters['id'] ?? '';
+          return ProviderAboutPage(providerId: id);
         },
       ),
       GoRoute(
@@ -91,12 +112,23 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
+      GoRoute(
+        path: '/chat/:chatId',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) {
+          final chatId = state.pathParameters['chatId'] ?? '';
+          return ChatDetailPage(chatId: chatId);
+        },
+      ),
       GoRoute(path: '/profile/availability', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AvailabilityPage()),
       GoRoute(path: '/profile/my-services', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const MyServicesPage()),
       GoRoute(path: '/profile/account', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AccountDetailsPage()),
       GoRoute(path: '/profile/favorites', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const FavoritesPage()),
       GoRoute(path: '/profile/notifications', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const NotificationsPage()),
       GoRoute(path: '/profile/public', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const PublicProfilePage()),
+      GoRoute(path: '/profile/business-setup', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const BusinessSetupPage()),
+      GoRoute(path: '/profile/business', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const BusinessProfilePage()),
+      GoRoute(path: '/profile/team', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const TeamMembersPage()),
     ],
   );
 });

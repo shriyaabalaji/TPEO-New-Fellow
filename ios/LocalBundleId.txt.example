@@ -1,0 +1,5 @@
+# Copy this file to LocalBundleId.txt (which is gitignored) and put your bundle ID on the first line.
+# Example: com.yourteam.tpeo.newfellow or com.tpeo.newfellow.dev
+# After you run scripts/install-git-hooks.sh, every 'git pull' will apply this ID so signing keeps working.
+
+com.tpeo.newfellow

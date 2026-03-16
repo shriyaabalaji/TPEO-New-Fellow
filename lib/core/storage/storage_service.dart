@@ -27,11 +27,28 @@ class StorageService {
     return ref.getDownloadURL();
   }
 
+  /// Upload service banner. Returns download URL or null.
+  Future<String?> uploadServiceBanner(String providerProfileId, String serviceId, File file) async {
+    if (!isAvailable) return null;
+    final ref = _storage.ref().child(FSPaths.providerProfiles).child(providerProfileId).child('services').child('$serviceId.jpg');
+    await ref.putFile(file);
+    return ref.getDownloadURL();
+  }
+
   /// Upload one gallery image. Returns download URL or null.
   Future<String?> uploadProviderGalleryImage(String providerProfileId, File file, {String? name}) async {
     if (!isAvailable) return null;
     final fileName = name ?? '${DateTime.now().millisecondsSinceEpoch}.jpg';
     final ref = _storage.ref().child(FSPaths.providerProfiles).child(providerProfileId).child('gallery').child(fileName);
+    await ref.putFile(file);
+    return ref.getDownloadURL();
+  }
+
+  /// Upload a chat image. Returns download URL or null.
+  Future<String?> uploadChatImage(String chatId, File file) async {
+    if (!isAvailable) return null;
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final ref = _storage.ref().child(FSPaths.chats).child(chatId).child(fileName);
     await ref.putFile(file);
     return ref.getDownloadURL();
   }

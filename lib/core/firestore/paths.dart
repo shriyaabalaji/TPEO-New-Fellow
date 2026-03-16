@@ -4,4 +4,7 @@ class FSPaths {
   static const services = 'services';
   static const availability = 'availability';
   static const appointments = 'appointments';
+  static const teamMembers = 'teamMembers';
+  static const chats = 'chats';
+  static const messages = 'messages';
 }

@@ -4,6 +4,8 @@ import '../../models/provider_profile.dart';
 import '../../models/service.dart';
 import '../../models/availability_slot.dart';
 import '../../models/appointment.dart';
+import '../../models/team_member.dart';
+import '../../models/chat.dart';
 import 'paths.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
@@ -45,7 +47,13 @@ class FirestoreService {
     await ref.set(updates, SetOptions(merge: true));
   }
 
+  /// Creates the single business (provider profile) for a service provider.
+  /// Each service provider may only have one business; throws if they already have one.
   Future<String> createProviderProfile({required String ownerUid, required String businessName, List<String>? tags}) async {
+    final existing = await _db.collection(FSPaths.providerProfiles).where('ownerUid', isEqualTo: ownerUid).limit(1).get();
+    if (existing.docs.isNotEmpty) {
+      throw StateError('A service provider may only have one business. Edit your existing business instead.');
+    }
     final ref = _db.collection(FSPaths.providerProfiles).doc();
     final model = ProviderProfile(
       providerProfileId: ref.id,
@@ -173,11 +181,12 @@ class FirestoreService {
         .map((q) => q.docs.map((d) => Service.fromMap({...d.data(), 'serviceId': d.id})).toList());
   }
 
-  Future<void> addService({
+  Future<String> addService({
     required String providerProfileId,
     required String name,
     required String price,
     required int durationMinutes,
+    String? bannerUrl,
   }) async {
     final ref = _db.collection(FSPaths.providerProfiles).doc(providerProfileId).collection(FSPaths.services).doc();
     final s = Service(
@@ -186,8 +195,10 @@ class FirestoreService {
       name: name,
       price: price,
       durationMinutes: durationMinutes,
+      bannerUrl: bannerUrl,
     );
     await ref.set(s.toMap());
+    return ref.id;
   }
 
   Future<void> updateService({
@@ -196,9 +207,16 @@ class FirestoreService {
     required String name,
     required String price,
     required int durationMinutes,
+    String? bannerUrl,
   }) async {
+    final updates = <String, dynamic>{
+      'name': name,
+      'price': price,
+      'durationMinutes': durationMinutes,
+    };
+    if (bannerUrl != null) updates['bannerUrl'] = bannerUrl;
     final ref = _db.collection(FSPaths.providerProfiles).doc(providerProfileId).collection(FSPaths.services).doc(serviceId);
-    await ref.update({'name': name, 'price': price, 'durationMinutes': durationMinutes});
+    await ref.update(updates);
   }
 
   Future<void> deleteService({required String providerProfileId, required String serviceId}) async {
@@ -300,11 +318,169 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Stream<List<TeamMember>> streamTeamMembers(String providerProfileId) {
+    return _db
+        .collection(FSPaths.providerProfiles)
+        .doc(providerProfileId)
+        .collection(FSPaths.teamMembers)
+        .snapshots()
+        .map((q) => q.docs
+            .map((d) => TeamMember.fromMap({...d.data(), 'teamMemberId': d.id}))
+            .toList());
+  }
+
+  Future<String> addTeamMember({
+    required String providerProfileId,
+    required String displayName,
+    String? email,
+    String? role,
+  }) async {
+    final ref = _db
+        .collection(FSPaths.providerProfiles)
+        .doc(providerProfileId)
+        .collection(FSPaths.teamMembers)
+        .doc();
+    final m = TeamMember(
+      teamMemberId: ref.id,
+      providerProfileId: providerProfileId,
+      displayName: displayName,
+      email: email,
+      role: role,
+    );
+    await ref.set(m.toMap());
+    return ref.id;
+  }
+
+  Future<void> updateTeamMember({
+    required String providerProfileId,
+    required String teamMemberId,
+    String? displayName,
+    String? email,
+    String? role,
+  }) async {
+    final ref = _db
+        .collection(FSPaths.providerProfiles)
+        .doc(providerProfileId)
+        .collection(FSPaths.teamMembers)
+        .doc(teamMemberId);
+    final updates = <String, dynamic>{};
+    if (displayName != null) updates['displayName'] = displayName;
+    if (email != null) updates['email'] = email;
+    if (role != null) updates['role'] = role;
+    if (updates.isEmpty) return;
+    await ref.update(updates);
+  }
+
+  Future<void> deleteTeamMember({
+    required String providerProfileId,
+    required String teamMemberId,
+  }) async {
+    await _db
+        .collection(FSPaths.providerProfiles)
+        .doc(providerProfileId)
+        .collection(FSPaths.teamMembers)
+        .doc(teamMemberId)
+        .delete();
+  }
+
   Future<void> removeFavorite(String uid, String providerProfileId) async {
     final ref = _db.collection(FSPaths.users).doc(uid);
     final doc = await ref.get();
     final list = List<String>.from((doc.data()?['favoriteProviderIds'] as List<dynamic>?)?.map((e) => e as String) ?? []);
     list.remove(providerProfileId);
     await ref.set({'favoriteProviderIds': list, 'updatedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────
+
+  /// Find or create a 1-on-1 chat between a consumer and a provider profile.
+  Future<String> getOrCreateChat({
+    required String consumerUid,
+    required String providerProfileId,
+    required String providerOwnerUid,
+  }) async {
+    final existing = await _db
+        .collection(FSPaths.chats)
+        .where('consumerUid', isEqualTo: consumerUid)
+        .where('providerProfileId', isEqualTo: providerProfileId)
+        .limit(1)
+        .get();
+    if (existing.docs.isNotEmpty) return existing.docs.first.id;
+
+    final ref = _db.collection(FSPaths.chats).doc();
+    final chat = ChatConversation(
+      chatId: ref.id,
+      consumerUid: consumerUid,
+      providerProfileId: providerProfileId,
+      participantUids: [consumerUid, providerOwnerUid],
+      lastMessage: '',
+      createdAt: DateTime.now(),
+    );
+    await ref.set(chat.toMap());
+    return ref.id;
+  }
+
+  /// Stream all chats where the given uid is a participant, ordered by last message.
+  Stream<List<ChatConversation>> streamChatsForUser(String uid) {
+    return _db
+        .collection(FSPaths.chats)
+        .where('participantUids', arrayContains: uid)
+        .snapshots()
+        .map((q) {
+      final list = q.docs
+          .map((d) => ChatConversation.fromMap({...d.data(), 'chatId': d.id}))
+          .toList();
+      list.sort((a, b) {
+        final aTime = a.lastMessageAt ?? a.createdAt;
+        final bTime = b.lastMessageAt ?? b.createdAt;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
+  }
+
+  /// Stream messages for a chat, newest last.
+  Stream<List<ChatMessage>> streamMessages(String chatId) {
+    return _db
+        .collection(FSPaths.chats)
+        .doc(chatId)
+        .collection(FSPaths.messages)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((q) => q.docs
+            .map((d) => ChatMessage.fromMap({...d.data(), 'messageId': d.id}))
+            .toList());
+  }
+
+  /// Send a message and update the conversation's lastMessage fields.
+  Future<void> sendMessage({
+    required String chatId,
+    required String senderUid,
+    required String text,
+    String? imageUrl,
+  }) async {
+    final msgRef = _db
+        .collection(FSPaths.chats)
+        .doc(chatId)
+        .collection(FSPaths.messages)
+        .doc();
+    final msg = ChatMessage(
+      messageId: msgRef.id,
+      senderUid: senderUid,
+      text: text,
+      imageUrl: imageUrl,
+    );
+    final preview = imageUrl != null && text.isEmpty ? '📷 Photo' : text;
+    final batch = _db.batch();
+    batch.set(msgRef, msg.toMap());
+    batch.update(_db.collection(FSPaths.chats).doc(chatId), {
+      'lastMessage': preview,
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'lastSenderUid': senderUid,
+    });
+    await batch.commit();
   }
 }

@@ -25,6 +25,24 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   bool _isSignUp = false;
   bool _isLoading = false;
   bool _obscurePassword = true;
+  bool _signedOutStaleSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _clearStaleSession();
+  }
+
+  /// Sign out any persisted Firebase session so users always land on login.
+  Future<void> _clearStaleSession() async {
+    if (_signedOutStaleSession) return;
+    _signedOutStaleSession = true;
+    final auth = ref.read(authServiceProvider);
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user != null && auth != null) {
+      await auth.signOut();
+    }
+  }
 
   @override
   void dispose() {
@@ -139,6 +157,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        leading: _showLanding
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _showLanding = true),
+              ),
         title: Text(_showLanding ? "Login / Sign Up" : (_isSignUp ? "Sign Up" : "Login")),
         backgroundColor: Colors.white,
       ),
@@ -349,13 +373,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: () => setState(() => _showLanding = true),
-                ),
-              ),
               Text(
                 _isSignUp ? "Create account" : "Sign in",
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),

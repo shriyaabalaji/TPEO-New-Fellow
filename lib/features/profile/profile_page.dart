@@ -1,19 +1,12 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../core/constants/tag_options.dart';
-import '../../core/firestore/firestore_service.dart';
-import '../../core/storage/storage_service.dart';
 import '../../models/provider_profile.dart';
 import '../../models/user_profile.dart';
 import '../auth/auth_controller.dart';
 import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
 import 'view_mode_provider.dart';
-import '../find/mock_providers.dart';
-import '../../widgets/image_lightbox.dart';
 
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key});
@@ -26,829 +19,381 @@ class ProfilePage extends ConsumerWidget {
     return effectiveUser.when(
       data: (appUser) {
         if (appUser == null) return const Scaffold(body: Center(child: Text('Not signed in')));
-        if (appUser.isDemo) {
-          return _buildProfileBody(context, ref, appUser, null, [], false);
-        }
-        if (fs == null) {
-          return _buildProfileBody(context, ref, appUser, null, [], false);
+        if (appUser.isDemo || fs == null) {
+          return _ProfileBody(user: appUser, userProfile: null, providerList: const [], hasProviderProfile: false);
         }
         return StreamBuilder<UserProfile>(
           stream: fs.streamUserProfile(appUser.uid),
           builder: (context, userSnap) {
-            final userProfile = userSnap.data;
             return StreamBuilder<List<ProviderProfile>>(
               stream: fs.streamProviderProfilesByOwner(appUser.uid),
               builder: (context, providerSnap) {
                 final providerList = providerSnap.data ?? [];
-                final hasProviderProfile = providerList.isNotEmpty;
-                final role = userProfile?.onboardingRole;
-                final defaultToProvider = (role == 'provider' || role == 'both') && !hasProviderProfile;
+                final hasProvider = providerList.isNotEmpty;
+                final role = userSnap.data?.onboardingRole;
+                final defaultToProvider = (role == 'provider' || role == 'both') && !hasProvider;
                 if (defaultToProvider && !ref.read(viewingAsProviderProvider)) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     ref.read(viewingAsProviderProvider.notifier).state = true;
                   });
                 }
-                return _buildProfileBody(context, ref, appUser, userProfile, providerList, hasProviderProfile);
+                return _ProfileBody(
+                  user: appUser,
+                  userProfile: userSnap.data,
+                  providerList: providerList,
+                  hasProviderProfile: hasProvider,
+                );
               },
             );
           },
         );
       },
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, st) => Scaffold(body: Center(child: Text('Auth error: $e'))),
+      error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
+}
 
-  Widget _buildProfileBody(
-    BuildContext context,
-    WidgetRef ref,
-    AppUser user,
-    UserProfile? userProfile,
-    List<ProviderProfile> providerList,
-    bool hasProviderProfile,
-  ) {
+class _ProfileBody extends ConsumerWidget {
+  const _ProfileBody({
+    required this.user,
+    required this.userProfile,
+    required this.providerList,
+    required this.hasProviderProfile,
+  });
+
+  final AppUser user;
+  final UserProfile? userProfile;
+  final List<ProviderProfile> providerList;
+  final bool hasProviderProfile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final viewingAsProvider = ref.watch(viewingAsProviderProvider);
     final displayName = userProfile?.displayName ?? user.displayName;
     final photoUrl = userProfile?.photoUrl ?? user.photoUrl;
-    final nameForAvatar = displayName.isNotEmpty ? displayName : '?';
-    final activeProviderProfileId = userProfile?.activeProviderProfileId;
+    final shortName = _shortenName(displayName);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () => context.push('/profile/notifications'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/profile/account'),
-          ),
-        ],
-      ),
+      backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(
-              child: Column(
+            // Banner + avatar
+            SizedBox(
+              height: 220,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundImage: photoUrl != null && photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
-                    child: (photoUrl == null || photoUrl.isEmpty)
-                        ? Text(
-                            nameForAvatar.substring(0, 1).toUpperCase(),
-                            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                                ),
-                          )
-                        : null,
+                  Container(
+                    height: 160,
+                    width: double.infinity,
+                    color: const Color(0xFF7B8CDE),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    displayName.isNotEmpty ? displayName : 'Name',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  if (viewingAsProvider) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.star, size: 16, color: Theme.of(context).colorScheme.primary),
-                        const SizedBox(width: 4),
-                        const Text('5.0 (170 reviews)'),
-                      ],
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 4),
+                        ),
+                        child: CircleAvatar(
+                          radius: 48,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                              ? NetworkImage(photoUrl)
+                              : null,
+                          child: (photoUrl == null || photoUrl.isEmpty)
+                              ? Text(
+                                  displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
+                                      : '?',
+                                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w600),
+                                )
+                              : null,
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                  ],
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 24),
-            Row(
-              children: [
-                Text('View as', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(width: 12),
-                SegmentedButton<bool>(
-                  segments: const [
-                    ButtonSegment(value: false, label: Text('Consumer'), icon: Icon(Icons.person)),
-                    ButtonSegment(value: true, label: Text('Provider'), icon: Icon(Icons.store)),
-                  ],
-                  selected: {viewingAsProvider},
-                  onSelectionChanged: (s) {
-                    final wantProvider = s.first;
-                    if (wantProvider && !hasProviderProfile) {
-                      if (user.isDemo) {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Demo mode'),
-                            content: const Text('Sign in with Google to create a provider profile and list your services.'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-                            ],
-                          ),
-                        );
-                      } else {
-                        showDialog(
-                          context: context,
-                          builder: (ctx) => AlertDialog(
-                            title: const Text('Start listing services'),
-                            content: const Text('Create a provider profile to list your services and receive bookings.'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                              ElevatedButton(
-                                onPressed: () {
-                                  Navigator.pop(ctx);
-                                  _showCreateProviderDialog(context, ref);
-                                },
-                                child: const Text('Get started'),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                    } else {
-                      ref.read(viewingAsProviderProvider.notifier).state = wantProvider;
-                    }
-                  },
-                ),
-              ],
+
+            const SizedBox(height: 8),
+            Text(
+              shortName.isNotEmpty ? shortName : 'Name',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
-            const SizedBox(height: 24),
-            if (viewingAsProvider)
-              _buildProviderContent(context, ref, user, activeProviderProfileId, providerList, hasProviderProfile)
-            else
-              _buildConsumerContent(context),
-            const SizedBox(height: 24),
-            const Divider(),
-            Text('My Account', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-            ListTile(
-              title: const Text('Account Details'),
-              trailing: const Icon(Icons.chevron_right, size: 22),
-              onTap: () => context.push('/profile/account'),
-            ),
-            ListTile(
-              title: const Text('Favorites'),
-              trailing: const Icon(Icons.chevron_right, size: 22),
-              onTap: () => context.push('/profile/favorites'),
-            ),
-            ListTile(
-              title: const Text('Notifications'),
-              trailing: const Icon(Icons.chevron_right, size: 22),
-              onTap: () => context.push('/profile/notifications'),
-            ),
-            if (viewingAsProvider) ...[
-              const SizedBox(height: 16),
-              Text('Service Provider Details', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-              ListTile(
-                title: const Text('My Services'),
-                trailing: const Icon(Icons.chevron_right, size: 22),
-                onTap: () => context.push('/profile/my-services'),
-              ),
-              ListTile(
-                title: const Text('Availability'),
-                trailing: const Icon(Icons.chevron_right, size: 22),
-                onTap: () => context.push('/profile/availability'),
-              ),
-            ],
-            if (!viewingAsProvider && hasProviderProfile) ...[
-              const SizedBox(height: 16),
-              Text('Profile View', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
-              ListTile(
-                title: const Text('Start Selling'),
-                trailing: const Icon(Icons.chevron_right, size: 22),
-                onTap: () => ref.read(viewingAsProviderProvider.notifier).state = true,
-              ),
-            ],
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: () async {
-                if (user.isDemo) {
-                  await ref.read(demoModeProvider.notifier).exitDemo();
-                  if (context.mounted) context.go('/login');
+
+            const SizedBox(height: 16),
+
+            // Customer / Seller toggle
+            _RoleToggle(
+              viewingAsProvider: viewingAsProvider,
+              hasProviderProfile: hasProviderProfile,
+              isDemo: user.isDemo,
+              onChanged: (wantProvider) {
+                if (wantProvider && !hasProviderProfile) {
+                  if (user.isDemo) {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Demo mode'),
+                        content: const Text('Sign in to set up your business.'),
+                        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+                      ),
+                    );
+                  } else {
+                    context.push('/profile/business-setup');
+                  }
                 } else {
-                  await ref.read(authServiceProvider)?.signOut();
-                  await ref.read(demoModeProvider.notifier).exitDemo();
-                  if (context.mounted) context.go('/login');
-                }
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildConsumerContent(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Businesses you follow', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 140,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: mockProviders.take(4).length,
-            itemBuilder: (_, i) {
-              final p = mockProviders.elementAt(i);
-              return SizedBox(
-                width: 120,
-                child: Card(
-                  clipBehavior: Clip.antiAlias,
-                  margin: const EdgeInsets.only(right: 12),
-                  child: InkWell(
-                    onTap: () => context.push('/provider/${p.id}'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: Container(color: Colors.grey.shade300)),
-                        Padding(
-                          padding: const EdgeInsets.all(8),
-                          child: Text(p.businessName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProviderContent(
-    BuildContext context,
-    WidgetRef ref,
-    AppUser user,
-    String? activeProviderProfileId,
-    List<ProviderProfile> providerList,
-    bool hasProviderProfile,
-  ) {
-    if (user.isDemo) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text(
-          'Sign in to create a provider profile and manage services.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-        ),
-      );
-    }
-    final fs = ref.watch(firestoreServiceProvider);
-    if (fs == null) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8),
-        child: Text(
-          'Firebase not configured. Provider features unavailable.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.error,
-              ),
-        ),
-      );
-    }
-    final primaryProfile = providerList.isNotEmpty ? providerList.first : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (primaryProfile != null) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  (primaryProfile.about != null && primaryProfile.about!.isNotEmpty)
-                      ? primaryProfile.about!
-                      : 'Add a short bio or status so customers know what you offer.',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit, size: 18),
-                tooltip: 'Edit bio',
-                onPressed: () => _showEditProviderDialog(context, ref, user.uid, primaryProfile, fs),
-              ),
-            ],
-          ),
-        ] else ...[
-          const Text('Create a provider profile to add your bio and services.'),
-        ],
-        const SizedBox(height: 8),
-        Text('Pricing · Services', style: Theme.of(context).textTheme.titleSmall),
-        const SizedBox(height: 4),
-        Text(
-          'Manage your services and pricing from the My Services page.',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () => context.push('/provider/me'),
-          child: const Text('Preview as customer'),
-        ),
-        const SizedBox(height: 16),
-        if (providerList.isEmpty)
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Your provider profiles', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => _showCreateProviderDialog(context, ref),
-                child: const Text('Create Provider Account'),
-              ),
-            ],
-          )
-        else
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Your provider profiles', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
-              ...providerList.map((p) {
-                final isActive = p.providerProfileId == activeProviderProfileId;
-                return ListTile(
-                  leading: Icon(
-                    isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: isActive ? Theme.of(context).colorScheme.primary : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4),
-                  ),
-                  title: Text(
-                    p.businessName,
-                    style: isActive
-                        ? Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)
-                        : Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  subtitle: isActive ? const Text('Active profile') : Text(p.providerProfileId),
-                  trailing: const Icon(Icons.chevron_right),
-                  selected: isActive,
-                  selectedTileColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.25),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  onTap: () => _showProviderOptions(context, ref, user.uid, p, fs),
-                );
-              }),
-              OutlinedButton(
-                onPressed: () => _showCreateProviderDialog(context, ref),
-                child: const Text('Create Provider Account'),
-              ),
-            ],
-          ),
-      ],
-    );
-  }
-
-  void _showCreateProviderDialog(BuildContext context, WidgetRef ref) {
-    final nameCtrl = TextEditingController();
-    final selectedTags = <String>[];
-    showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create Provider Account'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Business name')),
-                const SizedBox(height: 16),
-                Text('Categories', style: Theme.of(context).textTheme.titleSmall),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: tagOptions.map((tag) {
-                    final isSelected = selectedTags.contains(tag);
-                    return FilterChip(
-                      label: Text(tag),
-                      selected: isSelected,
-                      onSelected: (_) {
-                        setState(() {
-                          if (isSelected) {
-                            selectedTags.remove(tag);
-                          } else {
-                            selectedTags.add(tag);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, {'name': nameCtrl.text.trim(), 'tags': List<String>.from(selectedTags)}),
-              child: const Text('Create'),
-            ),
-          ],
-        ),
-      ),
-    ).then((res) async {
-      if (res == null) return;
-      final firebaseUser = ref.read(authStateProvider).valueOrNull;
-      if (firebaseUser == null) return;
-      final fs = ref.read(firestoreServiceProvider);
-      if (fs == null) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Firebase not configured. Cannot create provider.')),
-          );
-        }
-        return;
-      }
-      await ref.read(authServiceProvider)?.reloadUser();
-      final name = res['name'] as String? ?? '';
-      final tags = (res['tags'] as List<String>? ?? []);
-      try {
-        final id = await fs.createProviderProfile(ownerUid: firebaseUser.uid, businessName: name, tags: tags);
-        await fs.setActiveProviderProfile(uid: firebaseUser.uid, providerProfileId: id);
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Provider created')));
-          ref.read(viewingAsProviderProvider.notifier).state = true;
-        }
-      } catch (e) {
-        if (context.mounted) {
-          final msg = e.toString().toLowerCase().contains('permission') || e.toString().contains('PERMISSION_DENIED')
-              ? 'Permission denied. Make sure your email is verified and you\'re signed in with @utexas.edu. Try signing out and back in.'
-              : 'Create failed: $e';
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-        }
-      }
-    });
-  }
-
-  void _showProviderOptions(
-    BuildContext context,
-    WidgetRef ref,
-    String uid,
-    ProviderProfile p,
-    FirestoreService fs,
-  ) {
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Edit'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _showEditProviderDialog(context, ref, uid, p, fs);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.check_circle_outline),
-              title: const Text('Set as active'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                try {
-                  await fs.setActiveProviderProfile(uid: uid, providerProfileId: p.providerProfileId);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Active profile updated')),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed: $e')),
-                    );
-                  }
+                  ref.read(viewingAsProviderProvider.notifier).state = wantProvider;
                 }
               },
             ),
-            ListTile(
-              leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-              title: Text('Delete', style: TextStyle(color: Theme.of(context).colorScheme.error)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _confirmDeleteProvider(context, ref, uid, p, fs);
-              },
+
+            const SizedBox(height: 28),
+
+            // My Account
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Account',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 4),
+                  _AccountTile(
+                    icon: Icons.person_outline,
+                    label: 'Account Details',
+                    onTap: () => context.push('/profile/account'),
+                  ),
+                  _AccountTile(
+                    icon: Icons.favorite_border,
+                    label: 'Saved Services',
+                    onTap: () => context.push('/profile/favorites'),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
 
-  void _showEditProviderDialog(
-    BuildContext context,
-    WidgetRef ref,
-    String uid,
-    ProviderProfile p,
-    FirestoreService fs,
-  ) {
-    final nameCtrl = TextEditingController(text: p.businessName);
-    final selectedTags = List<String>.from(p.tags);
-    String? bannerUrl = p.bannerUrl;
-    File? bannerFile;
-    List<String> galleryUrls = List<String>.from(p.galleryUrls ?? []);
-    final aboutCtrl = TextEditingController(text: p.about ?? '');
-    final List<File> newGalleryFiles = [];
-    final storage = ref.read(storageServiceProvider);
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Edit provider'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: StatefulBuilder(
-              builder: (context, setState) => SingleChildScrollView(
+            // Provider section tiles
+            if (viewingAsProvider && hasProviderProfile) ...[
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Business name'),
+                    const Text(
+                      'Service Provider',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 16),
-                    Text('Banner image', style: Theme.of(context).textTheme.titleSmall),
                     const SizedBox(height: 4),
-                    if (bannerFile != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: GestureDetector(
-                          onTap: () => showImageLightbox(
-                            context,
-                            Image.file(bannerFile!, fit: BoxFit.contain),
-                          ),
-                          child: Image.file(
-                            bannerFile!,
-                            height: 80,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      )
-                    else if (bannerUrl != null)
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: GestureDetector(
-                          onTap: () => showImageLightbox(
-                            context,
-                            Image.network(bannerUrl!, fit: BoxFit.contain),
-                          ),
-                          child: Image.network(
-                            bannerUrl!,
-                            height: 80,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                    _AccountTile(
+                      icon: Icons.storefront_outlined,
+                      label: 'Business Profile',
+                      onTap: () => context.push('/profile/business'),
+                    ),
+                    _AccountTile(
+                      icon: Icons.list_alt,
+                      label: 'My Services',
+                      onTap: () => context.push('/profile/my-services'),
+                    ),
+                    _AccountTile(
+                      icon: Icons.schedule_outlined,
+                      label: 'Availability',
+                      onTap: () => context.push('/profile/availability'),
+                    ),
+                    _AccountTile(
+                      icon: Icons.group_outlined,
+                      label: 'Team Members',
+                      onTap: () => context.push('/profile/team'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Start selling CTA (consumer view, no provider profile yet)
+            if (!viewingAsProvider && !hasProviderProfile) ...[
+              const SizedBox(height: 40),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Have a service to provide?',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Become a provider and support\nyour campus community!',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
-                    if (bannerUrl != null || bannerFile != null) const SizedBox(height: 4),
-                    if (storage != null && storage.isAvailable)
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.add_photo_alternate, size: 20),
-                        label: Text(bannerUrl == null && bannerFile == null ? 'Add banner' : 'Change banner'),
-                        onPressed: () async {
-                          final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
-                          if (xFile == null || !ctx.mounted) return;
-                          setState(() {
-                            bannerFile = File(xFile.path);
-                          });
-                        },
-                      ),
-                    const SizedBox(height: 16),
-                    Text('Gallery', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 4),
-                    if (galleryUrls.isNotEmpty || newGalleryFiles.isNotEmpty)
-                      SizedBox(
-                        height: 72,
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: galleryUrls.length + newGalleryFiles.length,
-                          itemBuilder: (context, i) {
-                            final isExisting = i < galleryUrls.length;
-                            final url = isExisting ? galleryUrls[i] : null;
-                            final file = isExisting ? null : newGalleryFiles[i - galleryUrls.length];
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        final allImages = <Widget>[
-                                          ...galleryUrls.map((u) => Image.network(u, fit: BoxFit.contain)),
-                                          ...newGalleryFiles.map((f) => Image.file(f, fit: BoxFit.contain)),
-                                        ];
-                                        if (allImages.length > 1) {
-                                          showGalleryLightbox(context, images: allImages, initialIndex: i);
-                                        } else {
-                                          showImageLightbox(context, allImages.single);
-                                        }
-                                      },
-                                      child: isExisting
-                                          ? Image.network(
-                                              url!,
-                                              width: 72,
-                                              height: 72,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.file(
-                                              file!,
-                                              width: 72,
-                                              height: 72,
-                                              fit: BoxFit.cover,
-                                            ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    top: 2,
-                                    right: 2,
-                                    child: Material(
-                                      color: Colors.black.withValues(alpha: 0.6),
-                                      shape: const CircleBorder(),
-                                      child: InkWell(
-                                        customBorder: const CircleBorder(),
-                                        onTap: () {
-                                          setState(() {
-                                            if (isExisting) {
-                                              galleryUrls.removeAt(i);
-                                            } else {
-                                              newGalleryFiles.removeAt(i - galleryUrls.length);
-                                            }
-                                          });
-                                        },
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(2),
-                                          child: Icon(Icons.close, size: 16, color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: 180,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          if (user.isDemo) {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Demo mode'),
+                                content: const Text('Sign in to set up your business.'),
+                                actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
                               ),
                             );
-                          },
-                        ),
-                      ),
-                    if (galleryUrls.isNotEmpty || newGalleryFiles.isNotEmpty) const SizedBox(height: 4),
-                    if (storage != null && storage.isAvailable)
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.add_photo_alternate, size: 20),
-                        label: const Text('Add gallery photo'),
-                        onPressed: () async {
-                          final xFile = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
-                          if (xFile == null || !ctx.mounted) return;
-                          setState(() {
-                            newGalleryFiles.add(File(xFile.path));
-                          });
+                          } else {
+                            context.push('/profile/business-setup');
+                          }
                         },
-                      ),
-                    const SizedBox(height: 16),
-                    Text('Categories', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: tagOptions.map((tag) {
-                        final isSelected = selectedTags.contains(tag);
-                        return FilterChip(
-                          label: Text(tag),
-                          selected: isSelected,
-                          onSelected: (_) {
-                            setState(() {
-                              if (isSelected) {
-                                selectedTags.remove(tag);
-                              } else {
-                                selectedTags.add(tag);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
-                    Text('About / bio', style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: aboutCtrl,
-                      maxLines: 3,
-                      decoration: const InputDecoration(
-                        hintText: 'Tell customers a bit about your services, experience, or any special notes.',
-                        border: OutlineInputBorder(),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.black87),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          'Start selling',
+                          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                final name = nameCtrl.text.trim();
-                if (name.isEmpty) return;
-                Navigator.pop(ctx);
-                try {
-                  String? bannerUrlToSave = bannerUrl;
-                  if (bannerFile != null && storage != null && storage.isAvailable) {
-                    bannerUrlToSave = await storage.uploadProviderBanner(p.providerProfileId, bannerFile!);
-                  }
+            ],
 
-                  final updatedGalleryUrls = List<String>.from(galleryUrls);
-                  if (storage != null && storage.isAvailable && newGalleryFiles.isNotEmpty) {
-                    for (final f in newGalleryFiles) {
-                      final url = await storage.uploadProviderGalleryImage(p.providerProfileId, f);
-                      if (url != null) updatedGalleryUrls.add(url);
-                    }
-                  }
+            const SizedBox(height: 32),
 
-                  await fs.updateProviderProfile(
-                    providerProfileId: p.providerProfileId,
-                    ownerUid: uid,
-                    businessName: name,
-                    tags: List<String>.from(selectedTags),
-                    bannerUrl: bannerUrlToSave,
-                    galleryUrls: updatedGalleryUrls,
-                    about: aboutCtrl.text.trim().isEmpty ? null : aboutCtrl.text.trim(),
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Provider updated')),
-                    );
+            // Sign out
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  if (user.isDemo) {
+                    await ref.read(demoModeProvider.notifier).exitDemo();
+                    if (context.mounted) context.go('/login');
+                  } else {
+                    await ref.read(authServiceProvider)?.signOut();
+                    await ref.read(demoModeProvider.notifier).exitDemo();
+                    if (context.mounted) context.go('/login');
                   }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed: $e')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Save'),
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Sign out'),
+              ),
             ),
+            const SizedBox(height: 100),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 
-  void _confirmDeleteProvider(
-    BuildContext context,
-    WidgetRef ref,
-    String uid,
-    ProviderProfile p,
-    FirestoreService fs,
-  ) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete provider?'),
-        content: Text(
-          'This will remove "${p.businessName}". Services and availability for this profile will be lost. This cannot be undone.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await fs.deleteProviderProfile(
-                  providerProfileId: p.providerProfileId,
-                  ownerUid: uid,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Provider deleted')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed: $e')),
-                  );
-                }
-              }
-            },
-            child: const Text('Delete'),
-          ),
+  String _shortenName(String fullName) {
+    final parts = fullName.trim().split(' ');
+    if (parts.length <= 1) return fullName;
+    return '${parts.first} ${parts.last[0]}.';
+  }
+}
+
+class _RoleToggle extends StatelessWidget {
+  const _RoleToggle({
+    required this.viewingAsProvider,
+    required this.hasProviderProfile,
+    required this.isDemo,
+    required this.onChanged,
+  });
+
+  final bool viewingAsProvider;
+  final bool hasProviderProfile;
+  final bool isDemo;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _toggleChip('Customer', !viewingAsProvider, () => onChanged(false)),
+          _toggleChip('Seller', viewingAsProvider, () => onChanged(true)),
         ],
       ),
     );
   }
 
+  Widget _toggleChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.black : Colors.white70,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AccountTile extends StatelessWidget {
+  const _AccountTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Row(
+          children: [
+            Icon(icon, size: 22, color: Colors.black87),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+              ),
+            ),
+            const Icon(Icons.chevron_right, size: 22, color: Colors.black45),
+          ],
+        ),
+      ),
+    );
+  }
 }
