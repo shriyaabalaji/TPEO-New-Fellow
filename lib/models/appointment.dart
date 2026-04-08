@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class Appointment {
   const Appointment({
     required this.appointmentId,
@@ -10,6 +12,10 @@ class Appointment {
     required this.status,
     this.createdAt,
     this.updatedAt,
+    this.reviewRating,
+    this.reviewComment,
+    this.reviewedAt,
+    this.reviewerDisplayName,
   });
 
   final String appointmentId;
@@ -22,6 +28,17 @@ class Appointment {
   final String status;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int? reviewRating;
+  final String? reviewComment;
+  final DateTime? reviewedAt;
+  final String? reviewerDisplayName;
+
+  static DateTime? _ts(dynamic v) {
+    if (v == null) return null;
+    if (v is Timestamp) return v.toDate();
+    if (v is DateTime) return v;
+    return null;
+  }
 
   Map<String, dynamic> toMap() => {
         'appointmentId': appointmentId,
@@ -34,6 +51,10 @@ class Appointment {
         'status': status,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
+        'reviewRating': reviewRating,
+        'reviewComment': reviewComment,
+        'reviewedAt': reviewedAt,
+        'reviewerDisplayName': reviewerDisplayName,
       };
 
   factory Appointment.fromMap(Map<String, dynamic> m) => Appointment(
@@ -45,7 +66,11 @@ class Appointment {
         slotLabel: m['slotLabel'] as String? ?? '',
         price: m['price'] as String?,
         status: m['status'] as String? ?? 'pending',
-        createdAt: m['createdAt'] is DateTime ? m['createdAt'] as DateTime : null,
-        updatedAt: m['updatedAt'] is DateTime ? m['updatedAt'] as DateTime : null,
+        createdAt: _ts(m['createdAt']),
+        updatedAt: _ts(m['updatedAt']),
+        reviewRating: (m['reviewRating'] as num?)?.toInt(),
+        reviewComment: m['reviewComment'] as String?,
+        reviewedAt: _ts(m['reviewedAt']),
+        reviewerDisplayName: m['reviewerDisplayName'] as String?,
       );
 }

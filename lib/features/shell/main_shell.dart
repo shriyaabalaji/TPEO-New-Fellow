@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'bottom_nav_visibility_provider.dart';
 import '../profile/provider_account_controller.dart';
 import '../profile/view_mode_provider.dart';
 
@@ -45,11 +46,13 @@ class MainShell extends ConsumerWidget {
     final tabs = useProviderNav ? _providerTabs : _consumerTabs;
     final currentIndex = tabs.indexWhere((t) => loc.startsWith(t.path));
     final index = currentIndex >= 0 ? currentIndex : 0;
+    final showBottomNav = ref.watch(bottomNavVisibleProvider);
 
     return Scaffold(
       body: child,
       extendBody: true,
-      bottomNavigationBar: Padding(
+      bottomNavigationBar: showBottomNav
+          ? Padding(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
         child: Material(
           color: Colors.transparent,
@@ -108,7 +111,8 @@ class MainShell extends ConsumerWidget {
             ),
           ),
         ),
-      ),
+      )
+          : null,
     );
   }
 }

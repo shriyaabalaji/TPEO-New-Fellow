@@ -8,6 +8,8 @@ import '../../models/provider_profile.dart';
 import '../../models/service.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
+import '../profile/view_mode_provider.dart';
+import '../shell/bottom_nav_visibility_provider.dart';
 import 'mock_providers.dart';
 
 // ---------------------------------------------------------------------------
@@ -38,6 +40,16 @@ class FindPage extends ConsumerWidget {
     final selectedCategory = ref.watch(findSelectedCategoryProvider);
     final effectiveUser = ref.watch(effectiveUserProvider).valueOrNull;
     final minRating = ref.watch(findMinRatingProvider);
+    final viewingAsProvider = ref.watch(viewingAsProviderProvider);
+    final providerList = ref.watch(currentUserProviderProfilesProvider).valueOrNull ?? [];
+    final useProviderHome = viewingAsProvider && providerList.isNotEmpty;
+
+    if (useProviderHome) {
+      return _ProviderHomeBody(
+        fs: fs,
+        effectiveUser: effectiveUser,
+      );
+    }
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -341,12 +353,275 @@ class FindPage extends ConsumerWidget {
     }
   }
 
-  void _showFilterSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _FilterSheet(ref: ref),
+  Future<void> _showFilterSheet(BuildContext context, WidgetRef ref) async {
+    ref.read(bottomNavVisibleProvider.notifier).state = false;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => _FilterSheet(ref: ref),
+      );
+    } finally {
+      ref.read(bottomNavVisibleProvider.notifier).state = true;
+    }
+  }
+}
+
+class _ProviderHomeBody extends ConsumerWidget {
+  const _ProviderHomeBody({
+    required this.fs,
+    required this.effectiveUser,
+  });
+
+  final FirestoreService? fs;
+  final AppUser? effectiveUser;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (effectiveUser == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: Text('Sign in to view your services.')),
+      );
+    }
+
+    if (fs == null) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(child: Text('Firebase not configured.')),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: StreamBuilder<UserProfile?>(
+          stream: fs!.streamUserProfile(effectiveUser!.uid),
+          builder: (context, userSnap) {
+            final activeId = userSnap.data?.activeProviderProfileId;
+            if (activeId == null || activeId.isEmpty) {
+              return const Center(
+                child: Text('Create a provider profile from Profile first.'),
+              );
+            }
+
+            return StreamBuilder<List<Service>>(
+              stream: fs!.streamServices(activeId),
+              builder: (context, serviceSnap) {
+                final services = serviceSnap.data ?? [];
+                final displayName =
+                    (userSnap.data?.displayName ?? effectiveUser!.displayName).trim();
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
+                  children: [
+                    _ProviderGreetingHeader(
+                      user: effectiveUser!,
+                      greetingName: _firstNameFromDisplayName(displayName),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Text(
+                          'Your Services',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const Spacer(),
+                        OutlinedButton.icon(
+                          onPressed: () => context.push('/profile/my-services'),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Service'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.black87,
+                            side: const BorderSide(color: Color(0xFFCECECE)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (services.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF6F6F6),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Text(
+                          'No services yet. Tap Add Service to create your first service.',
+                        ),
+                      )
+                    else
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 14,
+                          childAspectRatio: 0.73,
+                        ),
+                        itemCount: services.length,
+                        itemBuilder: (_, i) => _ProviderServiceCard(
+                          service: services[i],
+                          onEditTap: () => context.push(
+                            '/profile/my-services?serviceId=${services[i].serviceId}',
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ProviderGreetingHeader extends StatelessWidget {
+  const _ProviderGreetingHeader({
+    required this.user,
+    required this.greetingName,
+  });
+
+  final AppUser user;
+  final String greetingName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minHeight: 108),
+      padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF3F3F3),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: const Color(0xFFE2E2E2),
+            backgroundImage: (user.photoUrl != null && user.photoUrl!.isNotEmpty)
+                ? NetworkImage(user.photoUrl!)
+                : null,
+            child: (user.photoUrl == null || user.photoUrl!.isEmpty)
+                ? const Icon(Icons.person, color: Colors.black54)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Hello, $greetingName',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _firstNameFromDisplayName(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return 'there';
+  final withoutEmailSuffix = text.contains('@') ? text.split('@').first : text;
+  final parts = withoutEmailSuffix.split(RegExp(r'\s+'));
+  final first = parts.first.trim();
+  if (first.isEmpty) return 'there';
+  return first[0].toUpperCase() + first.substring(1);
+}
+
+class _ProviderServiceCard extends StatelessWidget {
+  const _ProviderServiceCard({
+    required this.service,
+    required this.onEditTap,
+  });
+
+  final Service service;
+  final VoidCallback onEditTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final priceLabel = service.price.isEmpty ? 'Prices Vary' : service.price;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: service.bannerUrl != null && service.bannerUrl!.isNotEmpty
+                    ? Image.network(
+                        service.bannerUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            Container(color: Colors.grey.shade200),
+                      )
+                    : Container(
+                        color: Colors.grey.shade200,
+                        child: Icon(
+                          Icons.image_outlined,
+                          size: 32,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+              ),
+              Positioned(
+                right: 8,
+                top: 8,
+                child: GestureDetector(
+                  onTap: onEditTap,
+                  child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit,
+                      size: 16, color: Colors.white),
+                ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          service.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 2),
+        const Row(
+          children: [
+            Icon(Icons.star, size: 14, color: Colors.black),
+            SizedBox(width: 4),
+            Text('5.0 (37)',
+                style: TextStyle(fontSize: 13, color: Colors.black87)),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          priceLabel,
+          style: const TextStyle(fontSize: 16, color: Colors.black87),
+        ),
+      ],
     );
   }
 }

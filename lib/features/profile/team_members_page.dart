@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../../core/firestore/firestore_service.dart';
+import '../../core/ui/subpage_app_bar.dart';
 import '../../models/team_member.dart';
 import '../../models/user_profile.dart';
 import '../auth/effective_user_provider.dart';
@@ -17,12 +17,11 @@ class TeamMembersPage extends ConsumerWidget {
     final fs = ref.watch(firestoreServiceProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Team Members'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/profile/business'),
-        ),
+      backgroundColor: Colors.white,
+      appBar: buildSubpageAppBar(
+        context,
+        title: 'Team Members',
+        fallbackRoute: '/profile/business',
       ),
       body: effectiveUser.when(
         data: (appUser) {

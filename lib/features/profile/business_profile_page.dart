@@ -7,6 +7,7 @@ import '../../core/constants/tag_options.dart';
 import '../../core/firestore/firestore_service.dart';
 import '../../core/storage/storage_service.dart';
 import '../../models/provider_profile.dart';
+import '../../core/ui/subpage_app_bar.dart';
 import '../../widgets/image_lightbox.dart';
 import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
@@ -22,13 +23,8 @@ class BusinessProfilePage extends ConsumerWidget {
     final profilesAsync = ref.watch(currentUserProviderProfilesProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Business Profile'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/profile'),
-        ),
-      ),
+      backgroundColor: Colors.white,
+      appBar: buildSubpageAppBar(context, title: 'Business Profile'),
       body: effectiveUser.when(
         data: (appUser) {
           if (appUser == null || appUser.isDemo) {

@@ -22,6 +22,7 @@ import 'features/profile/account_details_page.dart';
 import 'features/profile/favorites_page.dart';
 import 'features/profile/notifications_page.dart';
 import 'features/profile/public_profile_page.dart';
+import 'features/profile/reviews_page.dart';
 import 'features/profile/business_setup_page.dart';
 import 'features/profile/business_profile_page.dart';
 import 'features/profile/team_members_page.dart';
@@ -29,6 +30,27 @@ import 'features/chat/chat_list_page.dart';
 import 'features/chat/chat_detail_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+CustomTransitionPage<void> _buildShellSlidePage({
+  required GoRouterState state,
+  required Widget child,
+}) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final tween = Tween<Offset>(
+        begin: const Offset(1, 0),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.easeOutCubic));
+      return SlideTransition(
+        position: animation.drive(tween),
+        child: child,
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 220),
+  );
+}
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authRefresh = ref.watch(authRedirectNotifierProvider);
@@ -77,10 +99,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ShellRoute(
         builder: (context, state, child) => MainShell(child: child),
         routes: [
-          GoRoute(path: '/find', builder: (_, __) => const FindPage()),
-          GoRoute(path: '/appointments', builder: (_, __) => const AppointmentsPage()),
-          GoRoute(path: '/chat', builder: (_, __) => const ChatListPage()),
-          GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
+          GoRoute(
+            path: '/find',
+            pageBuilder: (_, state) => _buildShellSlidePage(
+              state: state,
+              child: const FindPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/appointments',
+            pageBuilder: (_, state) => _buildShellSlidePage(
+              state: state,
+              child: const AppointmentsPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/chat',
+            pageBuilder: (_, state) => _buildShellSlidePage(
+              state: state,
+              child: const ChatListPage(),
+            ),
+          ),
+          GoRoute(
+            path: '/profile',
+            pageBuilder: (_, state) => _buildShellSlidePage(
+              state: state,
+              child: const ProfilePage(),
+            ),
+          ),
         ],
       ),
       GoRoute(
@@ -113,6 +159,22 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/booking/edit',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) {
+          final params = state.uri.queryParameters;
+          return BookingPage(
+            providerId: params['providerId'] ?? '',
+            initialServiceId: params['serviceId'],
+            initialServiceName: params['serviceName'],
+            initialPrice: params['price'],
+            editAppointmentId: params['appointmentId'],
+            initialSlotLabel: params['slotLabel'],
+            initialNotes: params['notes'],
+          );
+        },
+      ),
+      GoRoute(
         path: '/chat/:chatId',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, state) {
@@ -121,11 +183,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(path: '/profile/availability', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AvailabilityPage()),
-      GoRoute(path: '/profile/my-services', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const MyServicesPage()),
+      GoRoute(
+        path: '/profile/my-services',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => MyServicesPage(
+          initialEditServiceId: state.uri.queryParameters['serviceId'],
+        ),
+      ),
       GoRoute(path: '/profile/account', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const AccountDetailsPage()),
       GoRoute(path: '/profile/favorites', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const FavoritesPage()),
       GoRoute(path: '/profile/notifications', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const NotificationsPage()),
       GoRoute(path: '/profile/public', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const PublicProfilePage()),
+      GoRoute(path: '/profile/reviews', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const ReviewsPage()),
       GoRoute(path: '/profile/business-setup', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const BusinessSetupPage()),
       GoRoute(path: '/profile/business', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const BusinessProfilePage()),
       GoRoute(path: '/profile/team', parentNavigatorKey: _rootNavigatorKey, builder: (_, __) => const TeamMembersPage()),

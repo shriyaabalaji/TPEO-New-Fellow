@@ -9,6 +9,7 @@ import '../../models/provider_profile.dart';
 import '../../models/user_profile.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
+import '../shell/bottom_nav_visibility_provider.dart';
 
 class ChatDetailPage extends ConsumerStatefulWidget {
   const ChatDetailPage({super.key, required this.chatId});
@@ -23,6 +24,7 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _sending = false;
+  static const double _pinnedProviderOverlayHeight = 104;
 
   @override
   void dispose() {
@@ -92,41 +94,46 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     }
   }
 
-  void _showAttachMenu(String uid, FirestoreService fs) {
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Photo album'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _sendImage(uid, fs, ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Open camera'),
-              onTap: () {
-                Navigator.pop(ctx);
-                _sendImage(uid, fs, ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.insert_drive_file_outlined),
-              title: const Text('Send a file'),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
+  Future<void> _showAttachMenu(String uid, FirestoreService fs) async {
+    ref.read(bottomNavVisibleProvider.notifier).state = false;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
-      ),
-    );
+        builder: (ctx) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Photo album'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendImage(uid, fs, ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Open camera'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _sendImage(uid, fs, ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.insert_drive_file_outlined),
+                title: const Text('Send a file'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+        ),
+      );
+    } finally {
+      ref.read(bottomNavVisibleProvider.notifier).state = true;
+    }
   }
 
   @override
@@ -177,31 +184,47 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
           body: Column(
             children: [
               Expanded(
-                child: StreamBuilder<List<ChatMessage>>(
-                  stream: fs.streamMessages(widget.chatId),
-                  builder: (context, msgSnap) {
-                    final messages = msgSnap.data ?? [];
-                    if (messages.isNotEmpty) _scrollToBottom();
+                child: Stack(
+                  children: [
+                    StreamBuilder<List<ChatMessage>>(
+                      stream: fs.streamMessages(widget.chatId),
+                      builder: (context, msgSnap) {
+                        final messages = msgSnap.data ?? [];
+                        if (messages.isNotEmpty) _scrollToBottom();
 
-                    return ListView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      itemCount: (chat != null ? 1 : 0) + _itemCount(messages),
-                      itemBuilder: (context, i) {
-                        if (chat != null && i == 0) {
-                          return _ProviderInfoCard(
+                        return ListView.builder(
+                          controller: _scrollController,
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            (chat != null ? _pinnedProviderOverlayHeight : 8) + 8,
+                            16,
+                            8,
+                          ),
+                          itemCount: _itemCount(messages),
+                          itemBuilder: (context, i) {
+                            return _buildMessageItem(context, messages, i, uid);
+                          },
+                        );
+                      },
+                    ),
+                    if (chat != null)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: _pinnedProviderOverlayHeight,
+                          color: Colors.white,
+                          alignment: Alignment.topCenter,
+                          child: _ProviderInfoCard(
                             chat: chat,
                             isConsumer: isConsumer,
                             fs: fs,
-                          );
-                        }
-                        final adjustedIndex = i - (chat != null ? 1 : 0);
-                        return _buildMessageItem(
-                            context, messages, adjustedIndex, uid);
-                      },
-                    );
-                  },
+                            compactPinned: true,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (_sending)
@@ -314,11 +337,20 @@ class _ChatAppBar extends StatelessWidget {
         ),
         child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-              onPressed: () => Navigator.of(context).pop(),
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF1A1A1A), width: 1.2),
+                ),
+                child: const Icon(Icons.arrow_back_ios_new, size: 18),
+              ),
             ),
             if (chat != null) ...[
+              const SizedBox(width: 6),
               _AppBarAvatar(
                   chat: chat!, isConsumer: isConsumer, fs: fs),
               const SizedBox(width: 10),
@@ -328,9 +360,17 @@ class _ChatAppBar extends StatelessWidget {
               ),
             ] else
               const Expanded(child: Text('Chat')),
-            IconButton(
-              icon: const Icon(Icons.more_horiz, size: 24),
-              onPressed: () {},
+            GestureDetector(
+              onTap: () {},
+              child: Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF1A1A1A), width: 1.2),
+                ),
+                child: const Icon(Icons.more_horiz, size: 24),
+              ),
             ),
           ],
         ),
@@ -448,11 +488,13 @@ class _ProviderInfoCard extends StatelessWidget {
     required this.chat,
     required this.isConsumer,
     required this.fs,
+    this.compactPinned = false,
   });
 
   final ChatConversation chat;
   final bool isConsumer;
   final FirestoreService fs;
+  final bool compactPinned;
 
   @override
   Widget build(BuildContext context) {
@@ -473,7 +515,7 @@ class _ProviderInfoCard extends StatelessWidget {
                 ? _shortenName(ownerName)
                 : provider.businessName;
             return Padding(
-              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              padding: EdgeInsets.only(top: compactPinned ? 8 : 8, bottom: compactPinned ? 8 : 16),
               child: Column(
                 children: [
                   Text(
@@ -496,8 +538,11 @@ class _ProviderInfoCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Divider(height: 1),
+                  SizedBox(height: compactPinned ? 10 : 12),
+                  SizedBox(
+                    width: compactPinned ? 140 : double.infinity,
+                    child: const Divider(height: 1),
+                  ),
                 ],
               ),
             );

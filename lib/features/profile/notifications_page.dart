@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import '../../core/ui/subpage_app_bar.dart';
 import 'notifications_preferences_provider.dart';
 
 class NotificationsPage extends ConsumerWidget {
@@ -12,10 +12,8 @@ class NotificationsPage extends ConsumerWidget {
     final notifier = ref.read(notificationsPreferencesProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-        title: const Text('Notifications'),
-      ),
+      backgroundColor: Colors.white,
+      appBar: buildSubpageAppBar(context, title: 'Notifications'),
       body: prefsState.when(
         data: (prefs) => ListView(
           padding: const EdgeInsets.all(16),

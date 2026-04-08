@@ -88,7 +88,7 @@ class _ProfileBody extends ConsumerWidget {
                   Container(
                     height: 160,
                     width: double.infinity,
-                    color: const Color(0xFF7B8CDE),
+                    color: const Color(0xFFF2F2F2),
                   ),
                   Positioned(
                     bottom: 0,
@@ -125,7 +125,7 @@ class _ProfileBody extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               shortName.isNotEmpty ? shortName : 'Name',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w400),
             ),
 
             const SizedBox(height: 16),
@@ -157,7 +157,7 @@ class _ProfileBody extends ConsumerWidget {
 
             const SizedBox(height: 28),
 
-            // My Account
+            // My Account — seller + customer share container style.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
@@ -167,58 +167,52 @@ class _ProfileBody extends ConsumerWidget {
                     'My Account',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: 4),
-                  _AccountTile(
-                    icon: Icons.person_outline,
-                    label: 'Account Details',
-                    onTap: () => context.push('/profile/account'),
-                  ),
-                  _AccountTile(
-                    icon: Icons.favorite_border,
-                    label: 'Saved Services',
-                    onTap: () => context.push('/profile/favorites'),
+                  const SizedBox(height: 8),
+                  _AccountLinksBox(
+                    items: viewingAsProvider
+                        ? [
+                            _AccountLinkItem(
+                              icon: Icons.person_outline,
+                              label: 'Account Details',
+                              onTap: () => context.push('/profile/account'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.favorite_border,
+                              label: 'Edit Services',
+                              onTap: () => context.push('/profile/my-services'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.star_border,
+                              label: 'Your Reviews',
+                              onTap: () => context.push('/profile/reviews'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.logout,
+                              label: 'Sign out',
+                              onTap: () => _signOut(context, ref),
+                            ),
+                          ]
+                        : [
+                            _AccountLinkItem(
+                              icon: Icons.person_outline,
+                              label: 'Account Details',
+                              onTap: () => context.push('/profile/account'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.favorite_border,
+                              label: 'Saved Services',
+                              onTap: () => context.push('/profile/favorites'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.logout,
+                              label: 'Sign out',
+                              onTap: () => _signOut(context, ref),
+                            ),
+                          ],
                   ),
                 ],
               ),
             ),
-
-            // Provider section tiles
-            if (viewingAsProvider && hasProviderProfile) ...[
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Service Provider',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    _AccountTile(
-                      icon: Icons.storefront_outlined,
-                      label: 'Business Profile',
-                      onTap: () => context.push('/profile/business'),
-                    ),
-                    _AccountTile(
-                      icon: Icons.list_alt,
-                      label: 'My Services',
-                      onTap: () => context.push('/profile/my-services'),
-                    ),
-                    _AccountTile(
-                      icon: Icons.schedule_outlined,
-                      label: 'Availability',
-                      onTap: () => context.push('/profile/availability'),
-                    ),
-                    _AccountTile(
-                      icon: Icons.group_outlined,
-                      label: 'Team Members',
-                      onTap: () => context.push('/profile/team'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
 
             // Start selling CTA (consumer view, no provider profile yet)
             if (!viewingAsProvider && !hasProviderProfile) ...[
@@ -229,7 +223,7 @@ class _ProfileBody extends ConsumerWidget {
                   children: [
                     const Text(
                       'Have a service to provide?',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -242,8 +236,8 @@ class _ProfileBody extends ConsumerWidget {
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
-                      width: 180,
-                      child: OutlinedButton(
+                      width: 240,
+                      child: ElevatedButton(
                         onPressed: () {
                           if (user.isDemo) {
                             showDialog(
@@ -258,14 +252,16 @@ class _ProfileBody extends ConsumerWidget {
                             context.push('/profile/business-setup');
                           }
                         },
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: Colors.black87),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFF1F1F1),
+                          foregroundColor: const Color(0xFF1A1A1A),
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                         ),
                         child: const Text(
                           'Start selling',
-                          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+                          style: TextStyle(fontWeight: FontWeight.w400, fontSize: 30 / 2),
                         ),
                       ),
                     ),
@@ -276,29 +272,22 @@ class _ProfileBody extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
-            // Sign out
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  if (user.isDemo) {
-                    await ref.read(demoModeProvider.notifier).exitDemo();
-                    if (context.mounted) context.go('/login');
-                  } else {
-                    await ref.read(authServiceProvider)?.signOut();
-                    await ref.read(demoModeProvider.notifier).exitDemo();
-                    if (context.mounted) context.go('/login');
-                  }
-                },
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign out'),
-              ),
-            ),
             const SizedBox(height: 100),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    if (user.isDemo) {
+      await ref.read(demoModeProvider.notifier).exitDemo();
+      if (context.mounted) context.go('/login');
+      return;
+    }
+    await ref.read(authServiceProvider)?.signOut();
+    await ref.read(demoModeProvider.notifier).exitDemo();
+    if (context.mounted) context.go('/login');
   }
 
   String _shortenName(String fullName) {
@@ -362,36 +351,84 @@ class _RoleToggle extends StatelessWidget {
   }
 }
 
-class _AccountTile extends StatelessWidget {
-  const _AccountTile({
+/// One row inside a grouped account card (mock: icon, label, chevron).
+class _AccountLinkItem {
+  const _AccountLinkItem({
     required this.icon,
     required this.label,
     required this.onTap,
   });
-
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+}
+
+/// Rounded rectangle with thin dark border; rows separated by hairline dividers.
+class _AccountLinksBox extends StatelessWidget {
+  const _AccountLinksBox({required this.items});
+
+  final List<_AccountLinkItem> items;
+
+  static const _borderColor = Color(0xFF1A1A1A);
+  static const _radius = 12.0;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Icon(icon, size: 22, color: Colors.black87),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(_radius),
+        border: Border.all(color: _borderColor, width: 1),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: Colors.grey.shade300,
               ),
-            ),
-            const Icon(Icons.chevron_right, size: 22, color: Colors.black45),
+            _AccountLinkRow(item: items[i]),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountLinkRow extends StatelessWidget {
+  const _AccountLinkRow({required this.item});
+
+  final _AccountLinkItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: item.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(item.icon, size: 22, color: Colors.black87),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  item.label,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, size: 22, color: Colors.grey.shade600),
+            ],
+          ),
         ),
       ),
     );

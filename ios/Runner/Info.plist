@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>We need camera access so you can take and send photos in chat.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>We need microphone access for video recording.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>We need photo library access so you can share photos in chat.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -47,12 +53,6 @@
 			</array>
 		</dict>
 	</dict>
-	<key>NSCameraUsageDescription</key>
-	<string>We need camera access so you can take and send photos in chat.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access so you can share photos in chat.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>We need microphone access for video recording.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

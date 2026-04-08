@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/firestore/firestore_service.dart';
+import '../../core/ui/page_title.dart';
 import '../../models/chat.dart';
 import '../auth/effective_user_provider.dart';
 import '../profile/provider_account_controller.dart';
@@ -16,14 +17,12 @@ class ChatListPage extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text(
-          'Messages',
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-        ),
+        title: primaryPageTitle('Messages'),
         centerTitle: false,
         backgroundColor: Colors.white,
         elevation: 0,
         scrolledUnderElevation: 0,
+        titleSpacing: 20,
       ),
       body: effectiveUser.when(
         data: (appUser) {

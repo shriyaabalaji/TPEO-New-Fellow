@@ -1,13 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/ui/subpage_app_bar.dart';
+import '../../core/calendar/calendar_providers.dart';
 import '../../core/firestore/firestore_service.dart';
 import '../../core/storage/storage_service.dart';
 import '../../models/user_profile.dart';
 import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
+import 'view_mode_provider.dart';
 
 class AccountDetailsPage extends ConsumerWidget {
   const AccountDetailsPage({super.key});
@@ -16,20 +18,29 @@ class AccountDetailsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final effectiveUser = ref.watch(effectiveUserProvider);
     final fs = ref.watch(firestoreServiceProvider);
+    final viewingAsProvider = ref.watch(viewingAsProviderProvider);
+    final pageTitle =
+        viewingAsProvider ? 'Seller Account Details' : 'Customer Account Details';
 
     return effectiveUser.when(
       data: (appUser) {
         if (appUser == null) {
-          return _scaffold(context, body: const Center(child: Text('Not signed in')));
+          return _scaffold(
+            context,
+            title: pageTitle,
+            body: const Center(child: Text('Not signed in')),
+          );
         }
         if (appUser.isDemo || fs == null) {
           return _scaffold(
             context,
-            body: _AccountForm(
+            title: pageTitle,
+            body:             _AccountForm(
               displayName: appUser.displayName,
               photoUrl: appUser.photoUrl,
               uid: null,
               fs: null,
+              calendarGoogleEmail: null,
             ),
           );
         }
@@ -39,37 +50,35 @@ class AccountDetailsPage extends ConsumerWidget {
             final userProfile = snap.data;
             return _scaffold(
               context,
+              title: pageTitle,
               body: _AccountForm(
                 displayName: userProfile?.displayName ?? appUser.displayName,
                 photoUrl: userProfile?.photoUrl ?? appUser.photoUrl,
                 uid: appUser.uid,
                 fs: fs,
+                calendarGoogleEmail: userProfile?.calendarGoogleEmail,
               ),
             );
           },
         );
       },
-      loading: () => _scaffold(context, body: const Center(child: CircularProgressIndicator())),
-      error: (e, _) => _scaffold(context, body: Center(child: Text('Error: $e'))),
+      loading: () => _scaffold(
+        context,
+        title: pageTitle,
+        body: const Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => _scaffold(
+        context,
+        title: pageTitle,
+        body: Center(child: Text('Error: $e')),
+      ),
     );
   }
 
-  Widget _scaffold(BuildContext context, {required Widget body}) {
+  Widget _scaffold(BuildContext context, {required String title, required Widget body}) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
-        ),
-        title: const Text(
-          'Account Details',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
-      ),
+      appBar: buildSubpageAppBar(context, title: title),
       body: body,
     );
   }
@@ -81,12 +90,14 @@ class _AccountForm extends ConsumerWidget {
     required this.photoUrl,
     required this.uid,
     required this.fs,
+    this.calendarGoogleEmail,
   });
 
   final String displayName;
   final String? photoUrl;
   final String? uid;
   final FirestoreService? fs;
+  final String? calendarGoogleEmail;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,6 +181,64 @@ class _AccountForm extends ConsumerWidget {
 
           const SizedBox(height: 32),
 
+          if (uid != null && fs != null) ...[
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Google Calendar',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Sign in with a personal Google account to add bookings to that calendar. Your campus login stays the same.',
+              style: TextStyle(fontSize: 13, color: Colors.grey[600], height: 1.35),
+            ),
+            const SizedBox(height: 12),
+            if ((calendarGoogleEmail ?? '').isEmpty)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _connectGoogleCalendar(context, ref, uid!, fs!),
+                  icon: const Icon(Icons.calendar_month_outlined, size: 20),
+                  label: const Text('Connect Google Calendar'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Connected',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      calendarGoogleEmail!,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                    ),
+                    const SizedBox(height: 10),
+                    TextButton(
+                      onPressed: () => _disconnectGoogleCalendar(context, ref, uid!, fs!),
+                      child: const Text('Disconnect'),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 32),
+          ],
+
           // Stats
           Align(
             alignment: Alignment.centerLeft,
@@ -201,6 +270,62 @@ class _AccountForm extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _connectGoogleCalendar(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    FirestoreService fs,
+  ) async {
+    final cal = ref.read(googleCalendarServiceProvider);
+    try {
+      final account = await cal.signInAndAuthorize();
+      final email = account.email;
+      if (email.isEmpty) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No email on Google account')),
+          );
+        }
+        return;
+      }
+      await fs.setCalendarGoogleConnection(uid: uid, googleEmail: email);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Calendar connected')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not connect: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _disconnectGoogleCalendar(
+    BuildContext context,
+    WidgetRef ref,
+    String uid,
+    FirestoreService fs,
+  ) async {
+    try {
+      await ref.read(googleCalendarServiceProvider).disconnect();
+      await fs.clearCalendarGoogleConnection(uid);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google Calendar disconnected')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not disconnect: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _pickPhoto(BuildContext context, WidgetRef ref) async {

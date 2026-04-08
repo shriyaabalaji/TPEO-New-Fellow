@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/ui/subpage_app_bar.dart';
 import '../auth/effective_user_provider.dart';
 import 'provider_account_controller.dart';
 
@@ -16,20 +17,16 @@ class PublicProfilePage extends ConsumerWidget {
       data: (appUser) {
         if (appUser == null) {
           return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-              title: const Text('Public Profile'),
-            ),
+            backgroundColor: Colors.white,
+            appBar: buildSubpageAppBar(context, title: 'Public Profile'),
             body: const Center(child: Text('Not signed in')),
           );
         }
 
         if (appUser.isDemo) {
           return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-              title: const Text('Public Profile'),
-            ),
+            backgroundColor: Colors.white,
+            appBar: buildSubpageAppBar(context, title: 'Public Profile'),
             body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -61,20 +58,16 @@ class PublicProfilePage extends ConsumerWidget {
 
         if (fs == null) {
           return Scaffold(
-            appBar: AppBar(
-              leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-              title: const Text('Public Profile'),
-            ),
+            backgroundColor: Colors.white,
+            appBar: buildSubpageAppBar(context, title: 'Public Profile'),
             body: const Center(
               child: Text('Firebase not configured. Run: flutterfire configure'),
             ),
           );
         }
         return Scaffold(
-          appBar: AppBar(
-            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-            title: const Text('Public Profile'),
-          ),
+          backgroundColor: Colors.white,
+          appBar: buildSubpageAppBar(context, title: 'Public Profile'),
           body: StreamBuilder(
             stream: fs.streamProviderProfilesByOwner(appUser.uid),
             builder: (context, snap) {
@@ -177,17 +170,13 @@ class PublicProfilePage extends ConsumerWidget {
         );
       },
       loading: () => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-          title: const Text('Public Profile'),
-        ),
+        backgroundColor: Colors.white,
+        appBar: buildSubpageAppBar(context, title: 'Public Profile'),
         body: const Center(child: CircularProgressIndicator()),
       ),
       error: (e, _) => Scaffold(
-        appBar: AppBar(
-          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.go('/profile')),
-          title: const Text('Public Profile'),
-        ),
+        backgroundColor: Colors.white,
+        appBar: buildSubpageAppBar(context, title: 'Public Profile'),
         body: Center(child: Text('Error: $e')),
       ),
     );

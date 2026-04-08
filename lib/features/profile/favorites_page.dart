@@ -6,6 +6,7 @@ import '../auth/effective_user_provider.dart';
 import '../find/mock_providers.dart';
 import 'provider_account_controller.dart';
 import '../../core/firestore/firestore_service.dart';
+import '../../core/ui/subpage_app_bar.dart';
 
 class FavoritesPage extends ConsumerWidget {
   const FavoritesPage({super.key});
@@ -17,21 +18,13 @@ class FavoritesPage extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () => context.canPop() ? context.pop() : context.go('/profile'),
-        ),
-        title: const Text(
-          'Saved Services',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-        ),
+      appBar: buildSubpageAppBar(
+        context,
+        title: 'Saved Services',
         actions: [
           IconButton(
             icon: const Icon(Icons.tune, size: 22),
+            color: const Color(0xFF1A1A1A),
             onPressed: () {},
           ),
         ],

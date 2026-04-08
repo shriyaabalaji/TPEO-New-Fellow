@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../models/appointment.dart';
 import '../../models/provider_profile.dart';
 import '../../models/service.dart';
 import '../../models/user_profile.dart';
@@ -430,19 +431,48 @@ class _DetailBody extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 8),
-            _ReviewCard(
-              name: 'Kayla B.',
-              date: '2y ago',
-              rating: 5,
-              text:
-                  'I rate this service 10/10 so awesome! Lyssa did a great job at making my nails look fantastic wowow',
-            ),
-            _ReviewCard(
-              name: 'Kayla B.',
-              date: '2y ago',
-              rating: 5,
-              text: 'I rate this service 10/10 so awesome! Lyssa did a',
-            ),
+            if (fs == null)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                child: Text(
+                  'Reviews will appear here once customers leave feedback.',
+                  style: TextStyle(fontSize: 13, color: Colors.black54),
+                ),
+              )
+            else
+              StreamBuilder<List<Appointment>>(
+                stream: fs.streamAppointmentsByProviderProfile(effectiveProfileId),
+                builder: (context, snap) {
+                  final all = snap.data ?? [];
+                  final reviewed = all
+                      .where((a) => (a.reviewRating ?? 0) >= 1)
+                      .toList()
+                    ..sort((a, b) => (b.reviewedAt ?? DateTime(1970))
+                        .compareTo(a.reviewedAt ?? DateTime(1970)));
+                  if (reviewed.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 0, 20, 0),
+                      child: Text(
+                        'No reviews yet.',
+                        style: TextStyle(fontSize: 13, color: Colors.black54),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: [
+                      for (final a in reviewed.take(5))
+                        _ReviewCard(
+                          name: a.reviewerDisplayName ?? 'Customer',
+                          date: _formatRelativeReviewDate(a.reviewedAt),
+                          rating: a.reviewRating ?? 0,
+                          text: (a.reviewComment ?? '').trim().isEmpty
+                              ? 'Rated this booking.'
+                              : a.reviewComment!.trim(),
+                        ),
+                    ],
+                  );
+                },
+              ),
             const SizedBox(height: 32),
           ],
         ),
@@ -494,9 +524,13 @@ class _DetailBody extends ConsumerWidget {
     }
 
     final pricingDesc = services.isNotEmpty
-        ? services
-            .map((s) => '${s.name} (${s.price})')
-            .join(' · ')
+        ? services.map((s) {
+            final line = '${s.name} (${s.price})';
+            if (s.reviewCount > 0) {
+              return '$line · ${s.ratingAvg.toStringAsFixed(1)} (${s.reviewCount})';
+            }
+            return line;
+          }).join(' · ')
         : null;
 
     return Column(
@@ -766,6 +800,17 @@ class _ExpandableTextState extends State<_ExpandableText> {
       },
     );
   }
+}
+
+String _formatRelativeReviewDate(DateTime? t) {
+  if (t == null) return '';
+  final diff = DateTime.now().difference(t);
+  if (diff.inDays >= 365) return '${(diff.inDays / 365).floor()}y ago';
+  if (diff.inDays >= 30) return '${(diff.inDays / 30).floor()}mo ago';
+  if (diff.inDays >= 1) return '${diff.inDays}d ago';
+  if (diff.inHours >= 1) return '${diff.inHours}h ago';
+  if (diff.inMinutes >= 1) return '${diff.inMinutes}m ago';
+  return 'Just now';
 }
 
 class _ReviewCard extends StatelessWidget {

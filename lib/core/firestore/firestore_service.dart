@@ -47,6 +47,26 @@ class FirestoreService {
     await ref.set(updates, SetOptions(merge: true));
   }
 
+  /// Stores the personal Google account used for Calendar (optional; Firebase auth unchanged).
+  Future<void> setCalendarGoogleConnection({
+    required String uid,
+    required String googleEmail,
+  }) async {
+    await _db.collection(FSPaths.users).doc(uid).set({
+      'calendarGoogleEmail': googleEmail,
+      'calendarConnectedAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> clearCalendarGoogleConnection(String uid) async {
+    await _db.collection(FSPaths.users).doc(uid).set({
+      'calendarGoogleEmail': FieldValue.delete(),
+      'calendarConnectedAt': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   /// Creates the single business (provider profile) for a service provider.
   /// Each service provider may only have one business; throws if they already have one.
   Future<String> createProviderProfile({required String ownerUid, required String businessName, List<String>? tags}) async {
@@ -187,6 +207,9 @@ class FirestoreService {
     required String price,
     required int durationMinutes,
     String? bannerUrl,
+    String? description,
+    String? pricingDescription,
+    List<String>? galleryUrls,
   }) async {
     final ref = _db.collection(FSPaths.providerProfiles).doc(providerProfileId).collection(FSPaths.services).doc();
     final s = Service(
@@ -196,6 +219,9 @@ class FirestoreService {
       price: price,
       durationMinutes: durationMinutes,
       bannerUrl: bannerUrl,
+      description: description,
+      pricingDescription: pricingDescription,
+      galleryUrls: galleryUrls,
     );
     await ref.set(s.toMap());
     return ref.id;
@@ -208,6 +234,9 @@ class FirestoreService {
     required String price,
     required int durationMinutes,
     String? bannerUrl,
+    String? description,
+    String? pricingDescription,
+    List<String>? galleryUrls,
   }) async {
     final updates = <String, dynamic>{
       'name': name,
@@ -215,6 +244,9 @@ class FirestoreService {
       'durationMinutes': durationMinutes,
     };
     if (bannerUrl != null) updates['bannerUrl'] = bannerUrl;
+    updates['description'] = description ?? '';
+    updates['pricingDescription'] = pricingDescription ?? '';
+    updates['galleryUrls'] = galleryUrls ?? <String>[];
     final ref = _db.collection(FSPaths.providerProfiles).doc(providerProfileId).collection(FSPaths.services).doc(serviceId);
     await ref.update(updates);
   }
@@ -309,6 +341,94 @@ class FirestoreService {
     if (price != null) updates['price'] = price;
     if (updates.length == 1) return;
     await ref.update(updates);
+  }
+
+  /// One review per appointment; updates provider and service aggregate ratings.
+  /// Only allowed when the appointment status is [completed].
+  Future<void> submitConsumerReview({
+    required String appointmentId,
+    required String consumerUid,
+    required int rating,
+    String? comment,
+  }) async {
+    if (rating < 1 || rating > 5) {
+      throw ArgumentError('Rating must be 1–5');
+    }
+    await _db.runTransaction((txn) async {
+      final appRef = _db.collection(FSPaths.appointments).doc(appointmentId);
+      final userRef = _db.collection(FSPaths.users).doc(consumerUid);
+
+      final appSnap = await txn.get(appRef);
+      if (!appSnap.exists) {
+        throw StateError('Appointment not found');
+      }
+      final data = appSnap.data()!;
+      if (data['consumerUid'] != consumerUid) {
+        throw StateError('Not your appointment');
+      }
+      if (data['reviewRating'] != null) {
+        throw StateError('You already left feedback for this appointment');
+      }
+      final status = data['status'] as String? ?? '';
+      if (status != 'completed') {
+        throw StateError('Feedback is only available for completed appointments');
+      }
+
+      final providerProfileId = data['providerProfileId'] as String? ?? '';
+      if (providerProfileId.isEmpty) {
+        throw StateError('Invalid appointment');
+      }
+      final serviceId = data['serviceId'] as String?;
+
+      final userSnap = await txn.get(userRef);
+      final reviewerName =
+          (userSnap.data()?['displayName'] as String?)?.trim().isNotEmpty == true
+              ? (userSnap.data()!['displayName'] as String).trim()
+              : 'Customer';
+
+      final provRef = _db.collection(FSPaths.providerProfiles).doc(providerProfileId);
+      final provSnap = await txn.get(provRef);
+      if (!provSnap.exists) {
+        throw StateError('Provider not found');
+      }
+      final provD = provSnap.data()!;
+      final oldAvg = (provD['ratingAvg'] as num?)?.toDouble() ?? 0;
+      final oldCount = (provD['reviewCount'] as int?) ?? 0;
+      final newCount = oldCount + 1;
+      final newAvg = (oldAvg * oldCount + rating) / newCount;
+
+      DocumentSnapshot<Map<String, dynamic>>? svcSnap;
+      if (serviceId != null && serviceId.isNotEmpty) {
+        final svcRef = provRef.collection(FSPaths.services).doc(serviceId);
+        svcSnap = await txn.get(svcRef);
+      }
+
+      txn.update(provRef, {
+        'ratingAvg': newAvg,
+        'reviewCount': newCount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (svcSnap != null && svcSnap.exists) {
+        final sD = svcSnap.data()!;
+        final sOldAvg = (sD['ratingAvg'] as num?)?.toDouble() ?? 0;
+        final sOldCount = (sD['reviewCount'] as int?) ?? 0;
+        final sNewCount = sOldCount + 1;
+        final sNewAvg = (sOldAvg * sOldCount + rating) / sNewCount;
+        txn.update(svcSnap.reference, {
+          'ratingAvg': sNewAvg,
+          'reviewCount': sNewCount,
+        });
+      }
+
+      txn.update(appRef, {
+        'reviewRating': rating,
+        'reviewComment': comment ?? '',
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'reviewerDisplayName': reviewerName,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
   }
 
   Future<void> addFavorite(String uid, String providerProfileId) async {

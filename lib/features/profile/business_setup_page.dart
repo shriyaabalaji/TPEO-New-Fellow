@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/tag_options.dart';
+import '../../core/ui/subpage_app_bar.dart';
 import '../auth/auth_controller.dart';
 import 'provider_account_controller.dart';
 import 'view_mode_provider.dart';
@@ -78,13 +79,8 @@ class _BusinessSetupPageState extends ConsumerState<BusinessSetupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Business setup'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/profile'),
-        ),
-      ),
+      backgroundColor: Colors.white,
+      appBar: buildSubpageAppBar(context, title: 'Business setup'),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Form(
