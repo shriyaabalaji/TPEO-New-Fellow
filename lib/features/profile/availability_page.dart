@@ -174,7 +174,6 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     return Stack(
       children: [
         Column(
@@ -214,15 +213,18 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                 ],
               ),
             ),
-            Padding(
+            GestureDetector(
+              onHorizontalDragEnd: (d) {
+                final v = d.primaryVelocity ?? 0;
+                if (v < -300) widget.onNextWeek();
+                if (v > 300) widget.onPrevWeek();
+              },
+              child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(7, (i) {
                   final date = widget.weekStart.add(Duration(days: i));
-                  final isToday = date.year == now.year &&
-                      date.month == now.month &&
-                      date.day == now.day;
                   final isSelected = i == widget.selectedDayIndex;
                   return GestureDetector(
                     onTap: () => widget.onSelectDay(i),
@@ -237,9 +239,7 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                           width: 34,
                           height: 34,
                           decoration: BoxDecoration(
-                            color: isToday
-                                ? const Color(0xFF2D2D2D)
-                                : (isSelected ? const Color(0xFFEAEAEA) : const Color(0xFFF4F4F4)),
+                            color: isSelected ? const Color(0xFF2D2D2D) : const Color(0xFFF4F4F4),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
@@ -248,7 +248,7 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
-                              color: isToday ? Colors.white : Colors.black87,
+                              color: isSelected ? Colors.white : Colors.black87,
                             ),
                           ),
                         ),
@@ -257,6 +257,7 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                   );
                 }),
               ),
+            ),
             ),
             const SizedBox(height: 6),
             Expanded(
@@ -318,123 +319,113 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
 
   void _showAddAvailabilityOverlay(BuildContext context) {
     var startHour = 10;
+    var startMinute = 0;
     var startPeriod = 'AM';
     var endHour = 3;
+    var endMinute = 0;
     var endPeriod = 'PM';
     var editingStart = true;
 
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      enableDrag: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
-          String formatTime(int h, String p) {
-            return '$h:00 $p';
+          String formatTime(int h, int m, String p) {
+            final mm = m.toString().padLeft(2, '0');
+            return '$h:$mm $p';
           }
 
-          return Container(
-            margin: const EdgeInsets.fromLTRB(14, 0, 14, 10),
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: const [
-                BoxShadow(
-                  blurRadius: 14,
-                  color: Color(0x22000000),
-                  offset: Offset(0, 3),
-                ),
-              ],
+          return Padding(
+            padding: EdgeInsets.only(
+              left: 20, right: 20, top: 12,
+              bottom: MediaQuery.viewInsetsOf(ctx).bottom + MediaQuery.viewPaddingOf(ctx).bottom + 12,
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 46,
-                  height: 5,
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE3E3E3),
+                    color: const Color(0xFFDDDDDD),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 const Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
                     'Add Availability',
-                    style: TextStyle(fontSize: 40 / 2, fontWeight: FontWeight.w700),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: _overlayTimeChip(
-                        label: formatTime(startHour, startPeriod),
+                        label: formatTime(startHour, startMinute, startPeriod),
                         selected: editingStart,
-                        onTap: () => setDialogState(() {
-                          editingStart = true;
-                        }),
+                        onTap: () => setDialogState(() => editingStart = true),
                       ),
                     ),
                     const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
-                      child: Text(
-                        'to',
-                        style: TextStyle(fontSize: 36 / 2, fontWeight: FontWeight.w500),
-                      ),
+                      padding: EdgeInsets.symmetric(horizontal: 10),
+                      child: Text('to', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                     ),
                     Expanded(
                       child: _overlayTimeChip(
-                        label: formatTime(endHour, endPeriod),
+                        label: formatTime(endHour, endMinute, endPeriod),
                         selected: !editingStart,
-                        onTap: () => setDialogState(() {
-                          editingStart = false;
-                        }),
+                        onTap: () => setDialogState(() => editingStart = false),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  height: 240,
+                  height: 200,
                   child: _InlineTimeWheelPicker(
                     hour: editingStart ? startHour : endHour,
+                    minute: editingStart ? startMinute : endMinute,
                     period: editingStart ? startPeriod : endPeriod,
-                    onChanged: (h, p) {
+                    onChanged: (h, m, p) {
                       setDialogState(() {
                         if (editingStart) {
-                          startHour = h;
-                          startPeriod = p;
+                          startHour = h; startMinute = m; startPeriod = p;
                         } else {
-                          endHour = h;
-                          endPeriod = p;
+                          endHour = h; endMinute = m; endPeriod = p;
                         }
                       });
                     },
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 10),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      final startH24 =
-                          startPeriod == 'PM' && startHour != 12
-                              ? startHour + 12
-                              : (startPeriod == 'AM' && startHour == 12 ? 0 : startHour);
-                      final endH24 =
-                          endPeriod == 'PM' && endHour != 12
-                              ? endHour + 12
-                              : (endPeriod == 'AM' && endHour == 12 ? 0 : endHour);
-                      if (endH24 <= startH24) return;
+                      final startH24 = startPeriod == 'PM' && startHour != 12
+                          ? startHour + 12
+                          : (startPeriod == 'AM' && startHour == 12 ? 0 : startHour);
+                      final endH24 = endPeriod == 'PM' && endHour != 12
+                          ? endHour + 12
+                          : (endPeriod == 'AM' && endHour == 12 ? 0 : endHour);
+                      final startMins = startH24 * 60 + startMinute;
+                      final endMins = endH24 * 60 + endMinute;
+                      if (endMins <= startMins) return;
                       final updated = [
                         ...widget.slots,
                         AvailabilitySlot(
                           dayOfWeek: _selectedDayOfWeek,
-                          start: '${startH24.toString().padLeft(2, '0')}:00',
-                          end: '${endH24.toString().padLeft(2, '0')}:00',
+                          start: '${startH24.toString().padLeft(2, '0')}:${startMinute.toString().padLeft(2, '0')}',
+                          end: '${endH24.toString().padLeft(2, '0')}:${endMinute.toString().padLeft(2, '0')}',
                         ),
                       ];
                       Navigator.pop(ctx);
@@ -443,15 +434,10 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2D2D2D),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      minimumSize: const Size.fromHeight(52),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      minimumSize: const Size.fromHeight(46),
                     ),
-                    child: const Text(
-                      'Add Availability',
-                      style: TextStyle(fontSize: 34 / 2, fontWeight: FontWeight.w500),
-                    ),
+                    child: const Text('Add Availability', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -460,19 +446,13 @@ class _InteractiveScheduleBodyState extends State<_InteractiveScheduleBody> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(50),
+                      minimumSize: const Size.fromHeight(44),
                       side: const BorderSide(color: Color(0xFF222222), width: 1),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(fontSize: 34 / 2, color: Colors.black),
-                    ),
+                    child: const Text('Cancel', style: TextStyle(fontSize: 15, color: Colors.black)),
                   ),
                 ),
-                SizedBox(height: MediaQuery.viewPaddingOf(ctx).bottom + 2),
               ],
             ),
           );
@@ -565,68 +545,58 @@ List<AvailabilitySlot> _toggleDayRange({
 class _InlineTimeWheelPicker extends StatelessWidget {
   const _InlineTimeWheelPicker({
     required this.hour,
+    required this.minute,
     required this.period,
     required this.onChanged,
   });
 
   final int hour;
+  final int minute;
   final String period;
-  final void Function(int hour, String period) onChanged;
+  final void Function(int hour, int minute, String period) onChanged;
 
   @override
   Widget build(BuildContext context) {
     final hourController = FixedExtentScrollController(initialItem: hour - 1);
-    final periodController =
-        FixedExtentScrollController(initialItem: period == 'AM' ? 0 : 1);
+    final minuteController = FixedExtentScrollController(initialItem: minute);
+    final periodController = FixedExtentScrollController(initialItem: period == 'AM' ? 0 : 1);
 
     return Row(
       children: [
         Expanded(
           child: CupertinoPicker(
-            key: ValueKey('hour-$hour-$period'),
-            itemExtent: 42,
-            diameterRatio: 1.35,
+            key: ValueKey('hour-$hour-$minute-$period'),
+            itemExtent: 38,
+            diameterRatio: 1.2,
             scrollController: hourController,
-            onSelectedItemChanged: (index) => onChanged(index + 1, period),
-            children: List.generate(
-              12,
-              (i) => Center(
-                child: Text(
-                  '${i + 1}',
-                  style: const TextStyle(fontSize: 20),
-                ),
-              ),
-            ),
+            onSelectedItemChanged: (i) => onChanged(i + 1, minute, period),
+            children: List.generate(12, (i) => Center(
+              child: Text('${i + 1}', style: const TextStyle(fontSize: 18)),
+            )),
           ),
         ),
         Expanded(
           child: CupertinoPicker(
-            key: const ValueKey('minute-static-00'),
-            itemExtent: 42,
-            diameterRatio: 1.35,
-            scrollController: FixedExtentScrollController(initialItem: 0),
-            onSelectedItemChanged: (_) {},
-            children: const [
-              Center(
-                child: Text(
-                  '00',
-                  style: TextStyle(fontSize: 20),
-                ),
-              ),
-            ],
+            key: ValueKey('minute-$hour-$minute-$period'),
+            itemExtent: 38,
+            diameterRatio: 1.2,
+            scrollController: minuteController,
+            onSelectedItemChanged: (i) => onChanged(hour, i, period),
+            children: List.generate(60, (i) => Center(
+              child: Text(i.toString().padLeft(2, '0'), style: const TextStyle(fontSize: 18)),
+            )),
           ),
         ),
         Expanded(
           child: CupertinoPicker(
-            key: ValueKey('period-$hour-$period'),
-            itemExtent: 42,
-            diameterRatio: 1.35,
+            key: ValueKey('period-$hour-$minute-$period'),
+            itemExtent: 38,
+            diameterRatio: 1.2,
             scrollController: periodController,
-            onSelectedItemChanged: (index) =>
-                onChanged(hour, index == 0 ? 'AM' : 'PM'),
+            onSelectedItemChanged: (i) => onChanged(hour, minute, i == 0 ? 'AM' : 'PM'),
             children: const [
-              Center(child: Text('AM', style: TextStyle(fontSize: 20))),
-              Center(child: Text('PM', style: TextStyle(fontSize: 20))),
+              Center(child: Text('AM', style: TextStyle(fontSize: 18))),
+              Center(child: Text('PM', style: TextStyle(fontSize: 18))),
             ],
           ),
         ),
@@ -737,8 +707,8 @@ class _DayDragGrid extends StatelessWidget {
             : (35.0 * totalRows);
         final rowH = availableH / totalRows;
         final gridH = rowH * totalRows;
-        return SingleChildScrollView(
-          padding: EdgeInsets.fromLTRB(10, 0, 10, 100 + MediaQuery.of(context).padding.bottom),
+        return Padding(
+          padding: EdgeInsets.fromLTRB(10, 0, 10, 0),
           child: SizedBox(
             height: gridH,
             child: Row(
@@ -778,17 +748,13 @@ class _DayDragGrid extends StatelessWidget {
                         builder: (context, preview, _) {
                           return Stack(
                             children: [
-                              Column(
-                                children: List.generate(totalRows, (_) {
-                                  return Container(
-                                    height: rowH,
-                                    decoration: const BoxDecoration(
-                                      border: Border(
-                                        bottom: BorderSide(color: Color(0xFFECECEC)),
-                                      ),
-                                    ),
-                                  );
-                                }),
+                              Positioned.fill(
+                                child: CustomPaint(
+                                  painter: _GridLinePainter(
+                                    totalRows: totalRows,
+                                    lineColor: const Color(0xFFECECEC),
+                                  ),
+                                ),
                               ),
                               ...daySlots.map((s) => _slotBlock(
                                     s,
@@ -911,6 +877,28 @@ List<AvailabilitySlot> _normalizeSlots(List<AvailabilitySlot> slots) {
     ));
   });
   return out;
+}
+
+class _GridLinePainter extends CustomPainter {
+  const _GridLinePainter({required this.totalRows, required this.lineColor});
+  final int totalRows;
+  final Color lineColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.0;
+    final rowH = size.height / totalRows;
+    for (var i = 1; i <= totalRows; i++) {
+      final y = rowH * i;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GridLinePainter old) =>
+      old.totalRows != totalRows || old.lineColor != lineColor;
 }
 
 class _HourRange {

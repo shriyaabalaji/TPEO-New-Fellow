@@ -21,6 +21,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+
   bool _showLanding = true; // false = show email/password form
   bool _isSignUp = false;
   bool _isLoading = false;
@@ -156,16 +157,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        leading: _showLanding
-            ? null
-            : IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => setState(() => _showLanding = true),
-              ),
-        title: Text(_showLanding ? "Login / Sign Up" : (_isSignUp ? "Sign Up" : "Login")),
-        backgroundColor: Colors.white,
-      ),
       body: authState.when(
         data: (user) {
           if (user != null) {
@@ -298,114 +289,169 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Widget _buildLanding(BuildContext context) {
+    // ── Vertical position of the content ──────────────────────────────────
+    // Negative = move up, Positive = move down. 0 = perfectly centered.
+    const verticalOffset = -40.0;
+    // ──────────────────────────────────────────────────────────────────────
     return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 48),
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(height: 48),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _showLanding = false;
-                    _isSignUp = false;
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+      child: Transform.translate(
+        offset: const Offset(0, verticalOffset),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Image.asset('assets/images/logo.png', width: 220),
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => setState(() { _showLanding = false; _isSignUp = false; }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBF5800),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Login'),
                 ),
-                child: const Text('Login'),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _showLanding = false;
-                    _isSignUp = true;
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton(
+                  onPressed: () => setState(() { _showLanding = false; _isSignUp = true; }),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBF5800),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Sign Up'),
                 ),
-                child: const Text('Sign Up'),
               ),
-            ),
-            const SizedBox(height: 32),
-            TextButton(
-              onPressed: () async {
-                await ref.read(demoModeProvider.notifier).enterDemo();
-                if (context.mounted) context.go('/onboarding/role');
-              },
-              child: const Text('Skip (demo)'),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildForm(BuildContext context) {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                _isSignUp ? "Create account" : "Sign in",
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              // Circular back button
+              GestureDetector(
+                onTap: () => setState(() => _showLanding = true),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 1.5),
+                  ),
+                  child: const Icon(Icons.arrow_back, size: 20, color: Colors.black),
+                ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Use your @utexas.edu account',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+              const SizedBox(height: 24),
+              // Centered subtitle header
+              Center(
+                child: Column(
+                  children: [
+                    Text(
+                      'Bevo Booked',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black,
+                          ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _isSignUp ? 'Create your account' : 'Welcome back',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.black54,
+                          ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
+              Text(
+                _isSignUp ? 'Sign Up' : 'Sign In',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+              ),
+              const SizedBox(height: 24),
+              // Email field
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 autocorrect: false,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  hintText: '@utexas.edu',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  hintText: 'Email (@utexas.edu)',
+                  hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                  ),
                 ),
                 validator: _validateEmail,
               ),
               const SizedBox(height: 16),
+              // Password field
               TextFormField(
                 controller: _passwordCtrl,
                 obscureText: _obscurePassword,
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: _isSignUp ? 'Password (min 6 characters)' : 'Password',
-                  border: const OutlineInputBorder(),
+                  hintText: _isSignUp ? 'Password (min 6 characters)' : 'Password',
+                  hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFD0D0D0)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.black, width: 1.5),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red),
+                  ),
+                  focusedErrorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Colors.red, width: 1.5),
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
@@ -413,41 +459,50 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
                 validator: _validatePassword,
               ),
-              const SizedBox(height: 24),
-              FilledButton(
-                onPressed: _isLoading ? null : _submit,
-                child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                    : Text(_isSignUp ? 'Create account' : 'Sign in'),
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                child: Text(_isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Create one"),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () => setState(() => _showLanding = true),
-                child: const Text('Back'),
-              ),
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: () async {
-                  await clearOnboardingDone();
-                  ref.invalidate(onboardingDoneProvider);
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Onboarding reset. Create an account to see it again.')),
-                    );
-                  }
-                },
-                child: Text(
-                  'Reset onboarding',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
-                      ),
+              const Spacer(),
+              // Switch between login/signup
+              Center(
+                child: TextButton(
+                  onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                  child: Text(
+                    _isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up",
+                    style: const TextStyle(color: Colors.black54, fontSize: 13),
+                  ),
                 ),
               ),
+              const SizedBox(height: 8),
+              // Submit button styled like onboarding Continue
+              GestureDetector(
+                onTap: _isLoading ? null : _submit,
+                child: Container(
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: _isLoading ? const Color(0xFFB0B0B0) : Colors.black,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _isSignUp ? 'Create Account' : 'Sign In',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                      _isLoading
+                          ? const SizedBox(
+                              height: 20, width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),

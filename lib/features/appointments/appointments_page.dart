@@ -38,7 +38,6 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage>
   Widget build(BuildContext context) {
     final viewingAsProvider = ref.watch(viewingAsProviderProvider);
     final effectiveUser = ref.watch(effectiveUserProvider);
-    final demoAppointments = ref.watch(demoAppointmentsProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -80,21 +79,16 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage>
       ),
       body: effectiveUser.when(
         data: (appUser) {
-          final isDemo = appUser?.isDemo ?? false;
           return TabBarView(
             controller: _tabController,
             children: [
               _UpcomingTab(
                 appUser: appUser,
                 viewingAsProvider: viewingAsProvider,
-                isDemo: isDemo,
-                demoAppointments: demoAppointments,
               ),
               _CompletedTab(
                   appUser: appUser,
-                  viewingAsProvider: viewingAsProvider,
-                  isDemo: isDemo,
-                  demoAppointments: demoAppointments),
+                  viewingAsProvider: viewingAsProvider),
             ],
           );
         },
@@ -374,26 +368,13 @@ class _UpcomingTab extends ConsumerWidget {
   const _UpcomingTab({
     required this.appUser,
     required this.viewingAsProvider,
-    required this.isDemo,
-    required this.demoAppointments,
   });
 
   final AppUser? appUser;
   final bool viewingAsProvider;
-  final bool isDemo;
-  final List<DemoAppointment> demoAppointments;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (isDemo) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: demoAppointments
-            .map((a) => _ConsumerBookingCard(
-                serviceName: a.title, dateTimeLabel: a.subtitle))
-            .toList(),
-      );
-    }
     final fs = ref.watch(firestoreServiceProvider);
     if (appUser == null || fs == null) {
       return const Center(child: Text('Sign in to see appointments.'));
@@ -1526,27 +1507,13 @@ class _StatusPill extends StatelessWidget {
 class _CompletedTab extends ConsumerWidget {
   const _CompletedTab(
       {required this.appUser,
-      required this.viewingAsProvider,
-      required this.isDemo,
-      required this.demoAppointments});
+      required this.viewingAsProvider});
 
   final AppUser? appUser;
   final bool viewingAsProvider;
-  final bool isDemo;
-  final List<DemoAppointment> demoAppointments;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (isDemo) {
-      if (demoAppointments.isEmpty) return _emptyState(context);
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: demoAppointments
-            .map((a) => _ConsumerBookingCard(
-                serviceName: a.title, dateTimeLabel: a.subtitle))
-            .toList(),
-      );
-    }
     final fs = ref.watch(firestoreServiceProvider);
     if (appUser == null || fs == null) {
       return const Center(child: Text('Sign in to see appointments.'));

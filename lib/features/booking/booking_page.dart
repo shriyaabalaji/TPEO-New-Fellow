@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/calendar/calendar_providers.dart';
 import '../../models/availability_slot.dart';
 import '../../models/provider_profile.dart';
 import '../../models/service.dart';
@@ -985,6 +986,37 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                 ),
           ),
           const Spacer(),
+          OutlinedButton.icon(
+            onPressed: () async {
+              try {
+                final cal = ref.read(googleCalendarServiceProvider);
+                await cal.insertBookingEvent(
+                  summary: _selectedServiceName.isNotEmpty ? _selectedServiceName : 'Booking',
+                  slotLabel: _selectedSlotLabel,
+                  description: 'Booked via Bevo Booked',
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Added to Google Calendar')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Could not add to calendar: $e')),
+                  );
+                }
+              }
+            },
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              side: const BorderSide(color: Color(0xFF2B2B2B)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.calendar_month_outlined, color: Color(0xFF2B2B2B)),
+            label: const Text('Add to Google Calendar', style: TextStyle(color: Color(0xFF2B2B2B))),
+          ),
+          const SizedBox(height: 12),
           _buildPrimaryButton(
             context,
             label: 'View Bookings',
