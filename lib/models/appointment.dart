@@ -10,6 +10,7 @@ class Appointment {
     required this.slotLabel,
     this.price,
     required this.status,
+    this.notes,
     this.createdAt,
     this.updatedAt,
     this.reviewRating,
@@ -26,6 +27,7 @@ class Appointment {
   final String slotLabel;
   final String? price;
   final String status;
+  final String? notes;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final int? reviewRating;
@@ -49,6 +51,7 @@ class Appointment {
         'slotLabel': slotLabel,
         'price': price,
         'status': status,
+        'notes': notes,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
         'reviewRating': reviewRating,
@@ -66,6 +69,7 @@ class Appointment {
         slotLabel: m['slotLabel'] as String? ?? '',
         price: m['price'] as String?,
         status: m['status'] as String? ?? 'pending',
+        notes: m['notes'] as String?,
         createdAt: _ts(m['createdAt']),
         updatedAt: _ts(m['updatedAt']),
         reviewRating: (m['reviewRating'] as num?)?.toInt(),

@@ -917,6 +917,9 @@ class _BookingPageState extends ConsumerState<BookingPage> {
                         serviceName: _selectedServiceName.isNotEmpty ? _selectedServiceName : 'Service',
                         slotLabel: _selectedSlotLabel.isNotEmpty ? _selectedSlotLabel : 'TBD',
                         price: _selectedPrice,
+                        notes: _bookingNotesController.text.trim().isEmpty
+                            ? null
+                            : _bookingNotesController.text.trim(),
                       );
                     } catch (e) {
                       if (!mounted) return;

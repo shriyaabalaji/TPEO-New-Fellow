@@ -72,6 +72,9 @@ class _ProfileBody extends ConsumerWidget {
     final viewingAsProvider = ref.watch(viewingAsProviderProvider);
     final displayName = userProfile?.displayName ?? user.displayName;
     final photoUrl = userProfile?.photoUrl ?? user.photoUrl;
+    final normalizedPhotoUrl = (photoUrl ?? '').trim();
+    final hasValidNetworkPhoto = normalizedPhotoUrl.startsWith('http://') ||
+        normalizedPhotoUrl.startsWith('https://');
     final shortName = _shortenName(displayName);
 
     return Scaffold(
@@ -103,10 +106,13 @@ class _ProfileBody extends ConsumerWidget {
                         child: CircleAvatar(
                           radius: 48,
                           backgroundColor: Colors.grey[200],
-                          backgroundImage: photoUrl != null && photoUrl.isNotEmpty
-                              ? NetworkImage(photoUrl)
+                          backgroundImage: hasValidNetworkPhoto
+                              ? NetworkImage(normalizedPhotoUrl)
                               : null,
-                          child: (photoUrl == null || photoUrl.isEmpty)
+                          onBackgroundImageError: hasValidNetworkPhoto
+                              ? (_, __) {}
+                              : null,
+                          child: !hasValidNetworkPhoto
                               ? Text(
                                   displayName.isNotEmpty
                                       ? displayName[0].toUpperCase()

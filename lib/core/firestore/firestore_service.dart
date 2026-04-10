@@ -290,6 +290,7 @@ class FirestoreService {
     required String serviceName,
     required String slotLabel,
     String? price,
+    String? notes,
   }) async {
     final ref = _db.collection(FSPaths.appointments).doc();
     final a = Appointment(
@@ -300,6 +301,7 @@ class FirestoreService {
       serviceName: serviceName,
       slotLabel: slotLabel,
       price: price,
+      notes: notes,
       status: 'requested',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),

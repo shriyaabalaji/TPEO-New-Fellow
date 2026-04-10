@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/tag_options.dart';
+import '../../core/storage/storage_service.dart';
 import '../auth/auth_controller.dart';
 import '../profile/provider_account_controller.dart';
 import 'onboarding_progress.dart';
@@ -30,7 +33,7 @@ class InterestsScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               const _OnboardingHeader(),
               const SizedBox(height: 24),
-              OnboardingStepHeader(
+              const OnboardingStepHeader(
                 currentStep: stepIndex,
                 totalSteps: totalSteps,
               ),
@@ -77,6 +80,7 @@ class InterestsScreen extends ConsumerWidget {
                       ref.read(authStateProvider).valueOrNull?.uid;
                   final fs = ref.read(firestoreServiceProvider);
                   final auth = ref.read(authServiceProvider);
+                  final storage = ref.read(storageServiceProvider);
                   if (uid != null && fs != null) {
                     await auth?.reloadUserAndRefreshToken();
                     final first =
@@ -87,6 +91,34 @@ class InterestsScreen extends ConsumerWidget {
                     final username =
                         ref.read(onboardingUsernameProvider).trim();
                     final role = ref.read(onboardingRoleProvider);
+
+                    // Upload onboarding profile photo (if selected) and store download URL on the user doc.
+                    final photoPath = ref.read(onboardingPhotoPathProvider);
+                    String? uploadedPhotoUrl;
+                    if (photoPath != null && photoPath.trim().isNotEmpty) {
+                      try {
+                        if (storage == null) {
+                          throw StateError('Storage not available');
+                        }
+                        final file = File(photoPath);
+                        if (!await file.exists()) {
+                          throw StateError('Selected photo file not found');
+                        }
+                        uploadedPhotoUrl =
+                            await storage.uploadUserAvatar(uid, file);
+                        if (uploadedPhotoUrl == null ||
+                            uploadedPhotoUrl.trim().isEmpty) {
+                          throw StateError('Photo upload failed');
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to upload photo: $e')),
+                          );
+                        }
+                        return;
+                      }
+                    }
                     try {
                       await fs.updateUserProfile(
                         uid: uid,
@@ -94,6 +126,7 @@ class InterestsScreen extends ConsumerWidget {
                             displayName.isNotEmpty ? displayName : null,
                         username:
                             username.isNotEmpty ? username : null,
+                        photoUrl: uploadedPhotoUrl,
                         onboardingRole: role,
                       );
                     } catch (e) {
@@ -121,11 +154,13 @@ class InterestsScreen extends ConsumerWidget {
                       fs != null) {
                     final profiles =
                         await fs.streamProviderProfilesByOwner(uid).first;
+                    if (!context.mounted) return;
                     if (profiles.isEmpty) {
                       context.go('/profile/business-setup');
                       return;
                     }
                   }
+                  if (!context.mounted) return;
                   context.go('/find');
                 },
               ),

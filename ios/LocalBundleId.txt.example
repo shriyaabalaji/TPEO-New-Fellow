@@ -1,5 +1,18 @@
-# Copy this file to LocalBundleId.txt (which is gitignored) and put your bundle ID on the first line.
-# Example: com.yourteam.tpeo.newfellow or com.tpeo.newfellow.dev
-# After you run scripts/install-git-hooks.sh, every 'git pull' will apply this ID so signing keeps working.
+# Copy to LocalBundleId.txt (gitignored). First non-comment line = iOS bundle ID.
+#
+# Default below matches Firebase app "tpeo_new_fellow (ios)" with bundle ID
+# com.example.tpeoNewFellow — same as ios/Runner/GoogleService-Info.plist and
+# lib/firebase_options.dart. Use this unless you switch Firebase apps.
+#
+# To use a different Firebase iOS registration (e.g. com.tpeo.tpeoNewFellow):
+#   1) Download that app's GoogleService-Info.plist from Firebase Console.
+#   2) Replace ios/Runner/ and macos/Runner/ plists; run:
+#        dart pub global activate flutterfire_cli
+#        flutterfire configure
+#   3) Put that bundle ID on the line below and run:
+#        ./scripts/apply_local_bundle_id.sh
+#
+# In Xcode → Signing & Capabilities, pick your Team (Personal Team is fine).
+# DEVELOPMENT_TEAM is not committed so each developer uses their own Apple ID.
 
-com.tpeo.newfellow
+com.example.tpeoNewFellow

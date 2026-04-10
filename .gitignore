@@ -10,3 +10,11 @@
 **/GeneratedPluginRegistrant.*
 ios/.DS_Store
 ios/LocalBundleId.txt
+
+# Xcode / CocoaPods (user-specific or regenerated locally)
+**/xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+**/DerivedData/
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
