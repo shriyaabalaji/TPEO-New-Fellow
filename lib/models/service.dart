@@ -11,6 +11,8 @@ class Service {
     this.galleryUrls,
     this.ratingAvg = 0,
     this.reviewCount = 0,
+    this.businessName,
+    this.providerTags = const [],
   });
 
   final String serviceId;
@@ -24,6 +26,26 @@ class Service {
   final List<String>? galleryUrls;
   final double ratingAvg;
   final int reviewCount;
+  /// Populated client-side by joining with ProviderProfile; not stored in Firestore.
+  final String? businessName;
+  /// Inherited from the provider profile; used for category filtering.
+  final List<String> providerTags;
+
+  Service withProvider({required String businessName, required List<String> tags}) => Service(
+        serviceId: serviceId,
+        providerProfileId: providerProfileId,
+        name: name,
+        price: price,
+        durationMinutes: durationMinutes,
+        bannerUrl: bannerUrl,
+        description: description,
+        pricingDescription: pricingDescription,
+        galleryUrls: galleryUrls,
+        ratingAvg: ratingAvg,
+        reviewCount: reviewCount,
+        businessName: businessName,
+        providerTags: tags,
+      );
 
   Map<String, dynamic> toMap() => {
         'serviceId': serviceId,

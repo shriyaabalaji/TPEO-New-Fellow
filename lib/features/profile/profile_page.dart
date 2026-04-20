@@ -187,6 +187,11 @@ class _ProfileBody extends ConsumerWidget {
                               onTap: () => context.push('/profile/reviews'),
                             ),
                             _AccountLinkItem(
+                              icon: Icons.notifications_outlined,
+                              label: 'Notifications',
+                              onTap: () => context.push('/profile/notifications'),
+                            ),
+                            _AccountLinkItem(
                               icon: Icons.logout,
                               label: 'Sign out',
                               onTap: () => _signOut(context, ref),
@@ -202,6 +207,11 @@ class _ProfileBody extends ConsumerWidget {
                               icon: Icons.favorite_border,
                               label: 'Saved Services',
                               onTap: () => context.push('/profile/favorites'),
+                            ),
+                            _AccountLinkItem(
+                              icon: Icons.notifications_outlined,
+                              label: 'Notifications',
+                              onTap: () => context.push('/profile/notifications'),
                             ),
                             _AccountLinkItem(
                               icon: Icons.logout,
@@ -269,8 +279,6 @@ class _ProfileBody extends ConsumerWidget {
                 ),
               ),
             ],
-
-            const SizedBox(height: 32),
 
             const SizedBox(height: 100),
           ],

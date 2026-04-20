@@ -1,48 +1,63 @@
-# Campus Connect (TPEO New Fellow) — Flutter scaffold
+# TPEO New Fellow (Hook'd Up)
 
-This repo contains a minimal Flutter scaffold for Campus Connect — a UT-only marketplace app.
+Mobile marketplace app for UT Austin students built with Flutter, Riverpod, Firebase, and GoRouter.
 
-What I added today:
-- Flutter project skeleton (lib/ scaffold)
-- Riverpod for state management and go_router for routing
-- Firebase package dependencies in `pubspec.yaml`
-- Core services for Auth + Firestore and minimal UI (Login + Profile)
-- Firestore security rules in `firestore.rules`
+## Current product scope
 
-Important: I did not generate `firebase_options.dart` or platform Firebase files. You must run `flutterfire configure` locally with your Firebase project to generate them.
+- UT-only authentication flow with onboarding and profile setup
+- Main tabs: `Find`, `Appointments`, `Chat`, and `Profile`
+- Provider discovery with detail/about pages and booking flows
+- Appointment lifecycle support (create, edit, status updates)
+- In-app chat threads with media support
+- Local notification preferences + appointment reminder scheduling
 
-Quick setup
-1. Install Flutter and Xcode for iOS development.
-2. Activate FlutterFire CLI:
+## Tech stack
 
-```bash
-dart pub global activate flutterfire_cli
-```
+- Flutter + Dart
+- `flutter_riverpod` for app state
+- `go_router` for route orchestration
+- Firebase Auth, Firestore, and Firebase Storage
+- `flutter_local_notifications` + `timezone` for reminders
 
-3. Add packages:
+## Project structure
+
+- `lib/features/` app UI and feature flows
+- `lib/core/` shared services (Firebase init, Firestore, notifications, etc.)
+- `lib/models/` app models
+- `assets/` static assets, including demo seed images
+- `firestore.rules` and `storage.rules` backend access rules
+
+## Local setup
+
+1. Install Flutter and Xcode (for iOS).
+2. Install dependencies:
 
 ```bash
 flutter pub get
 ```
 
-4. Run FlutterFire configure (from repo root):
+3. Ensure Firebase config files are present (`lib/firebase_options.dart` and platform plist/json files). If needed:
 
 ```bash
+dart pub global activate flutterfire_cli
 flutterfire configure --project tpeo-nf-project --out=lib/firebase_options.dart
 ```
 
-Follow prompts to select iOS platform and enter bundle id `com.tpeo.nfproject`.
-
-5. Place the generated `GoogleService-Info.plist` into `ios/Runner/` and update Xcode signing.
-
-6. Run on iOS simulator / device:
+4. Run the app:
 
 ```bash
 flutter run -d ios
 ```
 
-Notes
-- Sign-in uses **email/password** (Firebase Authentication). The app and Firestore rules require **@utexas.edu** addresses only.
-- In [Firebase Console](https://console.firebase.google.com) → **Authentication** → **Sign-in method** → enable **Email/Password**.
-- New users must verify their email (link sent on sign-up) before using the app.
-# TPEO-New-Fellow
+## Firebase notes
+
+- Firebase project: `tpeo-nf-project` (wired via `firebase.json`).
+- Firestore rules are currently permissive for signed-in users during development (`firestore.rules`).
+- Storage rules allow public reads for provider/seed assets and authenticated writes (`storage.rules`).
+- If notifications are enabled in-app, iOS permission prompts are triggered from the notifications settings page.
+
+## Dev notes
+
+- Seed/demo data helpers live under `lib/core/seeder/`.
+- Seed assets are under `assets/seed_images/`.
+- Make sure Apple signing + bundle IDs are valid in the iOS project before building on device.

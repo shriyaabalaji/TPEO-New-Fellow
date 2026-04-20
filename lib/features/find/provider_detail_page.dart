@@ -324,88 +324,108 @@ class _DetailBody extends ConsumerWidget {
               ),
             ),
 
-            // Pricing section
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-              child: fs == null
-                  ? _buildPricingFallback(context)
-                  : StreamBuilder<List<Service>>(
-                      stream: fs.streamServices(effectiveProfileId),
-                      builder: (context, snap) {
-                        final services = snap.data ?? [];
-                        return _buildPricingSection(context, services);
-                      },
-                    ),
-            ),
-
-            // Gallery
-            if (p.galleryUrls != null && p.galleryUrls!.isNotEmpty) ...[
+            // Pricing + Gallery (single services stream for both)
+            if (fs == null) ...[
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Gallery',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black)),
-                    GestureDetector(
-                      onTap: () {
-                        final images = p.galleryUrls!
-                            .map((u) =>
-                                Image.network(u, fit: BoxFit.contain))
-                            .toList();
-                        showGalleryLightbox(context,
-                            images: images, initialIndex: 0);
-                      },
-                      child: const Text('See All',
-                          style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black54,
-                              decoration: TextDecoration.underline)),
-                    ),
-                  ],
-                ),
+                child: _buildPricingFallback(context),
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 100,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: p.galleryUrls!.length,
-                  itemBuilder: (_, i) {
-                    final url = p.galleryUrls![i];
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: GestureDetector(
-                          onTap: () {
-                            final images = p.galleryUrls!
-                                .map((u) => Image.network(u,
-                                    fit: BoxFit.contain))
-                                .toList();
-                            showGalleryLightbox(context,
-                                images: images, initialIndex: i);
-                          },
-                          child: Image.network(url,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                  width: 100,
-                                  height: 100,
-                                  color: Colors.grey.shade200)),
-                        ),
+            ] else
+              StreamBuilder<List<Service>>(
+                stream: fs.streamServices(effectiveProfileId),
+                builder: (context, snap) {
+                  final services = snap.data ?? [];
+
+                  // Merge provider-level gallery + all service galleries
+                  final allGalleryUrls = [
+                    ...?p.galleryUrls,
+                    for (final s in services) ...?s.galleryUrls,
+                  ];
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                        child: _buildPricingSection(context, services),
                       ),
-                    );
-                  },
-                ),
+
+                      // Gallery
+                      if (allGalleryUrls.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Gallery',
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.black)),
+                              GestureDetector(
+                                onTap: () {
+                                  final images = allGalleryUrls
+                                      .map((u) => Image.network(u,
+                                          fit: BoxFit.contain))
+                                      .toList();
+                                  showGalleryLightbox(context,
+                                      images: images, initialIndex: 0);
+                                },
+                                child: const Text('See All',
+                                    style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.black54,
+                                        decoration:
+                                            TextDecoration.underline)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          height: 100,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 20),
+                            itemCount: allGalleryUrls.length,
+                            itemBuilder: (_, i) {
+                              final url = allGalleryUrls[i];
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      final images = allGalleryUrls
+                                          .map((u) => Image.network(u,
+                                              fit: BoxFit.contain))
+                                          .toList();
+                                      showGalleryLightbox(context,
+                                          images: images, initialIndex: i);
+                                    },
+                                    child: Image.network(url,
+                                        width: 100,
+                                        height: 100,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            Container(
+                                                width: 100,
+                                                height: 100,
+                                                color:
+                                                    Colors.grey.shade200)),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
               ),
-            ],
 
             // Reviews
             Padding(

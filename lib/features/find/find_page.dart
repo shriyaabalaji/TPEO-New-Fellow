@@ -57,85 +57,118 @@ class FindPage extends ConsumerWidget {
           ? _buildBody(
               context,
               ref,
-              _applyFilters(
-                  _mockAsList(), searchQuery, selectedCategory, minRating),
+              _applyServiceFilters(
+                  _mockServicesAsList(), searchQuery, selectedCategory, minRating),
               null,
               null,
               fs,
             )
           : StreamBuilder<List<ProviderProfile>>(
               stream: fs.streamAllProviderProfiles(),
-              builder: (context, snap) {
-                final list = snap.data ?? [];
-                final fullList = list.isEmpty ? _mockAsList() : list;
-                final filtered = _applyFilters(
-                    fullList, searchQuery, selectedCategory, minRating);
-                final uid = effectiveUser != null && !effectiveUser.isDemo
-                    ? effectiveUser.uid
-                    : null;
-                return uid != null
-                    ? StreamBuilder<UserProfile?>(
-                        stream: fs.streamUserProfile(uid),
-                        builder: (context, userSnap) {
-                          final favIds =
-                              userSnap.data?.favoriteProviderIds ?? [];
-                          final showFavOnly =
-                              ref.watch(findShowFavoritesOnlyProvider);
-                          final results = showFavOnly
-                              ? filtered
-                                  .where((p) => favIds
-                                      .contains(p.providerProfileId))
-                                  .toList()
-                              : filtered;
-                          return _buildBody(
-                              context, ref, results, favIds, uid, fs);
-                        },
-                      )
-                    : _buildBody(context, ref, filtered, null, null, fs);
+              builder: (context, provSnap) {
+                return StreamBuilder<List<Service>>(
+                  stream: fs.streamAllServices(),
+                  builder: (context, snap) {
+                    final raw = snap.data ?? [];
+                    final providerById = {
+                      for (final p in (provSnap.data ?? []))
+                        p.providerProfileId: p
+                    };
+                    final joined = raw.map((s) {
+                      final p = providerById[s.providerProfileId];
+                      return p != null
+                          ? s.withProvider(
+                              businessName: p.businessName,
+                              tags: p.tags)
+                          : s;
+                    }).toList();
+                    final fullList = joined.isEmpty ? _mockServicesAsList() : joined;
+                    final filtered = _applyServiceFilters(
+                        fullList, searchQuery, selectedCategory, minRating);
+                    final uid = effectiveUser != null && !effectiveUser.isDemo
+                        ? effectiveUser.uid
+                        : null;
+                    return uid != null
+                        ? StreamBuilder<UserProfile?>(
+                            stream: fs.streamUserProfile(uid),
+                            builder: (context, userSnap) {
+                              final favIds =
+                                  userSnap.data?.favoriteProviderIds ?? [];
+                              final showFavOnly =
+                                  ref.watch(findShowFavoritesOnlyProvider);
+                              final results = showFavOnly
+                                  ? filtered
+                                      .where((s) => favIds
+                                          .contains(s.providerProfileId))
+                                      .toList()
+                                  : filtered;
+                              return _buildBody(
+                                  context, ref, results, favIds, uid, fs);
+                            },
+                          )
+                        : _buildBody(context, ref, filtered, null, null, fs);
+                  },
+                );
               },
             ),
     );
   }
 
-  List<ProviderProfile> _applyFilters(List<ProviderProfile> list, String query,
+  List<Service> _applyServiceFilters(List<Service> list, String query,
       String? category, double? minRating) {
     var out = list;
     if (query.isNotEmpty) {
       final q = query.toLowerCase();
-      out = out.where((p) {
-        if (p.businessName.toLowerCase().contains(q)) return true;
-        return p.tags.any((t) => t.toLowerCase().contains(q));
+      out = out.where((s) {
+        if (s.name.toLowerCase().contains(q)) return true;
+        if (s.businessName != null &&
+            s.businessName!.toLowerCase().contains(q)) return true;
+        return false;
       }).toList();
     }
     if (category != null && category.isNotEmpty) {
+      final cat = category.toLowerCase();
       out = out
-          .where((p) =>
-              p.tags.any((t) => t.toLowerCase() == category.toLowerCase()))
+          .where((s) =>
+              s.providerTags.any((t) => t.toLowerCase() == cat))
           .toList();
     }
     if (minRating != null) {
-      out = out.where((p) => p.ratingAvg >= minRating).toList();
+      out = out.where((s) => s.ratingAvg >= minRating).toList();
     }
     return out;
   }
 
-  List<ProviderProfile> _mockAsList() {
-    return mockProviders
-        .map((m) => ProviderProfile(
-              providerProfileId: m.id,
-              ownerUid: '',
-              businessName: m.businessName,
-              tags: m.tags,
-              ratingAvg: m.rating,
-              reviewCount: m.reviewCount,
-            ))
-        .toList();
+  List<Service> _mockServicesAsList() {
+    final services = <Service>[];
+    mockServicesByProvider.forEach((providerId, mockServices) {
+      final provider = mockProviderById(providerId);
+      for (var i = 0; i < mockServices.length; i++) {
+        final ms = mockServices[i];
+        final mp = mockProviders.firstWhere(
+          (p) => p.id == providerId,
+          orElse: () => const MockProvider(id: '', businessName: '', tags: []),
+        );
+        services.add(Service(
+          serviceId: '${providerId}_$i',
+          providerProfileId: providerId,
+          name: ms.name,
+          price: ms.price,
+          durationMinutes: 60,
+          ratingAvg: mp.rating,
+          reviewCount: mp.reviewCount,
+          businessName: provider?.businessName,
+          providerTags: provider?.tags ?? [],
+        ));
+      }
+    });
+    return services;
   }
 
   Widget _buildBody(
     BuildContext context,
     WidgetRef ref,
-    List<ProviderProfile> providers,
+    List<Service> services,
     List<String>? favoriteIds,
     String? currentUid,
     dynamic fs,
@@ -216,7 +249,7 @@ class FindPage extends ConsumerWidget {
           if (hasFilters) ...[
             _FilterChipsBar(
               ref: ref,
-              resultCount: providers.length,
+              resultCount: services.length,
               onOpenFilters: () => _showFilterSheet(context, ref),
             ),
             const SizedBox(height: 12),
@@ -282,12 +315,12 @@ class FindPage extends ConsumerWidget {
 
           // Grid
           Expanded(
-            child: providers.isEmpty
+            child: services.isEmpty
                 ? Center(
                     child: Text(
                       showFavoritesOnly
-                          ? 'No favorited businesses. Tap the heart to show all.'
-                          : 'No providers match your search.',
+                          ? 'No favorited services. Tap the heart to show all.'
+                          : 'No services match your search.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context)
                           .textTheme
@@ -304,20 +337,19 @@ class FindPage extends ConsumerWidget {
                       crossAxisSpacing: 14,
                       childAspectRatio: 0.68,
                     ),
-                    itemCount: providers.length,
+                    itemCount: services.length,
                     itemBuilder: (_, i) {
-                      final p = providers[i];
+                      final s = services[i];
                       final isFav =
-                          favoriteIds?.contains(p.providerProfileId) ?? false;
-                      return _ProviderCard(
-                        profile: p,
+                          favoriteIds?.contains(s.providerProfileId) ?? false;
+                      return _ServiceCard(
+                        service: s,
                         isFavorite: isFav,
-                        fs: fs is FirestoreService ? fs : null,
                         onTap: () =>
-                            context.push('/provider/${p.providerProfileId}'),
+                            context.push('/provider/${s.providerProfileId}'),
                         onFavoriteTap: fs != null && currentUid != null
                             ? () => _toggleFavorite(ref, fs!, currentUid,
-                                p.providerProfileId, isFav, context)
+                                s.providerProfileId, isFav, context)
                             : null,
                       );
                     },
@@ -1043,6 +1075,127 @@ class _FilterResultsButton extends StatelessWidget {
         ),
         child: const Text('Filter Results',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Service card (customer home grid)
+// ---------------------------------------------------------------------------
+class _ServiceCard extends StatelessWidget {
+  const _ServiceCard({
+    required this.service,
+    required this.isFavorite,
+    required this.onTap,
+    this.onFavoriteTap,
+  });
+
+  final Service service;
+  final bool isFavorite;
+  final VoidCallback onTap;
+  final VoidCallback? onFavoriteTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bannerUrl = service.bannerUrl ??
+        (service.galleryUrls?.isNotEmpty == true
+            ? service.galleryUrls!.first
+            : null);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: bannerUrl != null && bannerUrl.isNotEmpty
+                      ? Image.network(
+                          bannerUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              Container(color: Colors.grey.shade200),
+                        )
+                      : Container(
+                          color: Colors.grey.shade200,
+                          child: Icon(Icons.design_services_outlined,
+                              size: 40, color: Colors.grey.shade400),
+                        ),
+                ),
+                if (onFavoriteTap != null)
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: GestureDetector(
+                      onTap: onFavoriteTap,
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.1),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          isFavorite ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
+                          color: isFavorite ? Colors.red : Colors.black54,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            service.name,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: Colors.black,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (service.businessName != null && service.businessName!.isNotEmpty)
+            Text(
+              service.businessName!,
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              const Icon(Icons.star, size: 14, color: Colors.black),
+              const SizedBox(width: 4),
+              Text(
+                '${service.ratingAvg.toStringAsFixed(1)} (${service.reviewCount})',
+                style: const TextStyle(fontSize: 12, color: Colors.black87),
+              ),
+              const Spacer(),
+              Text(
+                service.price,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

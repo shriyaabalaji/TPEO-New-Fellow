@@ -192,6 +192,14 @@ class FirestoreService {
         q.docs.map((d) => ProviderProfile.fromMap(d.data())).toList());
   }
 
+  Stream<List<Service>> streamAllServices() {
+    return _db.collectionGroup(FSPaths.services).snapshots().map(
+          (q) => q.docs
+              .map((d) => Service.fromMap({...d.data(), 'serviceId': d.id}))
+              .toList(),
+        );
+  }
+
   Stream<List<Service>> streamServices(String providerProfileId) {
     return _db
         .collection(FSPaths.providerProfiles)

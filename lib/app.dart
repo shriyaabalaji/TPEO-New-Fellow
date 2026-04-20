@@ -28,6 +28,7 @@ import 'features/profile/business_profile_page.dart';
 import 'features/profile/team_members_page.dart';
 import 'features/chat/chat_list_page.dart';
 import 'features/chat/chat_detail_page.dart';
+import 'core/notifications/appointment_reminder_provider.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -207,6 +208,7 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(appointmentReminderProvider);
     final router = ref.watch(goRouterProvider);
     return MaterialApp.router(
       title: "Hook'd Up",

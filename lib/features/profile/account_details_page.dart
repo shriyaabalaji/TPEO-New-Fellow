@@ -111,8 +111,11 @@ class _AccountForm extends ConsumerWidget {
         children: [
           // Profile photo
           Center(
-            child: Stack(
-              children: [
+            child: SizedBox(
+              width: 112,
+              height: 112,
+              child: Stack(
+                children: [
                 CircleAvatar(
                   radius: 56,
                   backgroundColor: Colors.grey[200],
@@ -133,7 +136,7 @@ class _AccountForm extends ConsumerWidget {
                           ? () => _pickPhoto(context, ref)
                           : null,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(16),
@@ -154,6 +157,7 @@ class _AccountForm extends ConsumerWidget {
                   ),
                 ),
               ],
+            ),
             ),
           ),
 

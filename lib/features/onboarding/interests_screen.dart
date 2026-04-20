@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/constants/tag_options.dart';
+import '../../core/storage/storage_service.dart';
 import '../auth/auth_controller.dart';
 import '../profile/provider_account_controller.dart';
 import 'onboarding_progress.dart';
@@ -87,6 +90,14 @@ class InterestsScreen extends ConsumerWidget {
                     final username =
                         ref.read(onboardingUsernameProvider).trim();
                     final role = ref.read(onboardingRoleProvider);
+                    final photoPath = ref.read(onboardingPhotoPathProvider);
+                    String? photoUrl;
+                    if (photoPath != null) {
+                      final storage = ref.read(storageServiceProvider);
+                      if (storage != null) {
+                        photoUrl = await storage.uploadUserAvatar(uid, File(photoPath));
+                      }
+                    }
                     try {
                       await fs.updateUserProfile(
                         uid: uid,
@@ -95,6 +106,7 @@ class InterestsScreen extends ConsumerWidget {
                         username:
                             username.isNotEmpty ? username : null,
                         onboardingRole: role,
+                        photoUrl: photoUrl,
                       );
                     } catch (e) {
                       if (context.mounted) {

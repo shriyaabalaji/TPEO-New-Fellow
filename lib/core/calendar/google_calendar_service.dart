@@ -86,7 +86,7 @@ class GoogleCalendarService {
         'Time: $slotLabel',
       ].join('\n\n');
       final event = cal.Event()
-        ..summary = summary
+        ..summary = 'Bevo Booked: $summary'
         ..description = body.isEmpty ? slotLabel : body
         ..start = cal.EventDateTime(dateTime: start.toUtc())
         ..end = cal.EventDateTime(dateTime: end.toUtc());

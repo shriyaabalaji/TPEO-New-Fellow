@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'core/firebase_init.dart';
+import 'core/notifications/notification_service.dart';
 import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.instance.initialize();
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     firebaseInitialized = true;

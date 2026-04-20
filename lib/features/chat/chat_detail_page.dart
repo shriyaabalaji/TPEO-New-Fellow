@@ -99,35 +99,60 @@ class _ChatDetailPageState extends ConsumerState<ChatDetailPage> {
     try {
       await showModalBottomSheet<void>(
         context: context,
+        backgroundColor: Colors.white,
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         builder: (ctx) => SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Photo album'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _sendImage(uid, fs, ImageSource.gallery);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.camera_alt_outlined),
-                title: const Text('Open camera'),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _sendImage(uid, fs, ImageSource.camera);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.insert_drive_file_outlined),
-                title: const Text('Send a file'),
-                onTap: () => Navigator.pop(ctx),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD0D0D0),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Add attachment',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(height: 16),
+                _ChatAttachOption(
+                  icon: Icons.photo_library_outlined,
+                  label: 'Photo album',
+                  subtitle: 'Choose from your library',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _sendImage(uid, fs, ImageSource.gallery);
+                  },
+                ),
+                _ChatAttachOption(
+                  icon: Icons.camera_alt_outlined,
+                  label: 'Open camera',
+                  subtitle: 'Take a new photo',
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _sendImage(uid, fs, ImageSource.camera);
+                  },
+                ),
+                _ChatAttachOption(
+                  icon: Icons.insert_drive_file_outlined,
+                  label: 'Send a file',
+                  subtitle: 'Share a document',
+                  onTap: () => Navigator.pop(ctx),
+                  isLast: true,
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -764,6 +789,63 @@ class _MessageInput extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ChatAttachOption extends StatelessWidget {
+  const _ChatAttachOption({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F3F3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: const Color(0xFF2D2D2D)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      const SizedBox(height: 1),
+                      Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast)
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+      ],
     );
   }
 }

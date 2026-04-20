@@ -107,6 +107,11 @@ enum _CustomerBookingFilter { all, scheduled, pending }
 final customerBookingFilterProvider =
     StateProvider<_CustomerBookingFilter>((ref) => _CustomerBookingFilter.all);
 
+enum _ProviderBookingFilter { all, pending, scheduled }
+
+final providerBookingFilterProvider =
+    StateProvider<_ProviderBookingFilter>((ref) => _ProviderBookingFilter.all);
+
 bool _isWithinLastDays(DateTime? dt, int days) {
   if (dt == null) return false;
   final cutoff = DateTime.now().subtract(Duration(days: days));
@@ -218,122 +223,32 @@ Future<void> _showLeaveFeedbackSheet(
   required String appointmentId,
   required String consumerUid,
 }) async {
-  final commentCtrl = TextEditingController();
-  var selected = 5;
-  try {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setModalState) {
-            final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
-            return Padding(
-              padding: EdgeInsets.only(bottom: bottomInset),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Rate your experience',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF1A1A1A),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: List.generate(5, (i) {
-                          final starIndex = i + 1;
-                          return IconButton(
-                            onPressed: () => setModalState(() => selected = starIndex),
-                            icon: Icon(
-                              starIndex <= selected ? Icons.star : Icons.star_border,
-                              color: const Color(0xFF2E2E2E),
-                              size: 36,
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: commentCtrl,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: 'Share more about your visit (optional)',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        onPressed: () async {
-                          Navigator.of(ctx).pop();
-                          try {
-                            await fs.submitConsumerReview(
-                              appointmentId: appointmentId,
-                              consumerUid: consumerUid,
-                              rating: selected,
-                              comment: commentCtrl.text.trim().isEmpty
-                                  ? null
-                                  : commentCtrl.text.trim(),
-                            );
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Thanks for your feedback')),
-                              );
-                            }
-                          } catch (e) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('$e')),
-                              );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E2E2E),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                        child: const Text('Submit feedback'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (_) => _FeedbackSheet(
+      fs: fs,
+      appointmentId: appointmentId,
+      consumerUid: consumerUid,
+      onSuccess: () {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Thanks for your feedback')),
+          );
+        }
       },
-    );
-  } finally {
-    commentCtrl.dispose();
-  }
+      onError: (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e')),
+          );
+        }
+      },
+    ),
+  );
 }
 
 Future<void> _addBookingToGoogleCalendar(
@@ -412,16 +327,26 @@ class _UpcomingTab extends ConsumerWidget {
                       .where((a) => a.status == 'confirmed')
                       .toList();
 
+                  final providerFilter = ref.watch(providerBookingFilterProvider);
+                  final visiblePending = providerFilter == _ProviderBookingFilter.scheduled
+                      ? <Appointment>[]
+                      : pending;
+                  final visibleConfirmed = providerFilter == _ProviderBookingFilter.pending
+                      ? <Appointment>[]
+                      : confirmed;
+
                   return ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      // Filter chips
                       _FilterChips(
                         pendingCount: pending.length,
                         scheduledCount: confirmed.length,
+                        filter: providerFilter,
+                        onChanged: (v) =>
+                            ref.read(providerBookingFilterProvider.notifier).state = v,
                       ),
                       const SizedBox(height: 12),
-                      ...pending.map((a) => _SPBookingCard(
+                      ...visiblePending.map((a) => _SPBookingCard(
                             appointment: a,
                             fs: fs,
                             isPending: true,
@@ -429,7 +354,7 @@ class _UpcomingTab extends ConsumerWidget {
                                 ? () => _addBookingToGoogleCalendar(context, ref, a)
                                 : null,
                           )),
-                      ...confirmed.map((a) => _SPBookingCard(
+                      ...visibleConfirmed.map((a) => _SPBookingCard(
                             appointment: a,
                             fs: fs,
                             isPending: false,
@@ -513,36 +438,60 @@ class _FilterChips extends StatelessWidget {
   const _FilterChips({
     required this.pendingCount,
     required this.scheduledCount,
+    required this.filter,
+    required this.onChanged,
   });
 
   final int pendingCount;
   final int scheduledCount;
+  final _ProviderBookingFilter filter;
+  final ValueChanged<_ProviderBookingFilter> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _chip('Pending ($pendingCount)', true),
+        _chip(
+          'Pending ($pendingCount)',
+          filter == _ProviderBookingFilter.pending,
+          onTap: () => onChanged(
+            filter == _ProviderBookingFilter.pending
+                ? _ProviderBookingFilter.all
+                : _ProviderBookingFilter.pending,
+          ),
+        ),
         const SizedBox(width: 8),
-        _chip('Scheduled ($scheduledCount)', true),
+        _chip(
+          'Scheduled ($scheduledCount)',
+          filter == _ProviderBookingFilter.scheduled,
+          onTap: () => onChanged(
+            filter == _ProviderBookingFilter.scheduled
+                ? _ProviderBookingFilter.all
+                : _ProviderBookingFilter.scheduled,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _chip(String label, bool active) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: active ? Colors.white : Colors.grey[200],
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFCECECE)),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFF1A1A1A),
+  Widget _chip(String label, bool active, {required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: active ? const Color(0xFFF2F2F2) : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF8E949C)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: Color(0xFF1A1A1A),
+          ),
         ),
       ),
     );
@@ -670,35 +619,65 @@ class _SPBookingCardState extends State<_SPBookingCard> {
     final fs = widget.fs;
     final selected = await showModalBottomSheet<String>(
       context: context,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.check_circle, color: Color(0xFF2E7D32)),
-              title: const Text('Attended'),
-              onTap: () => Navigator.pop(ctx, 'completed'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.warning_amber_rounded, color: Color(0xFF8C6D00)),
-              title: const Text('No Show'),
-              onTap: () => Navigator.pop(ctx, 'no_show'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.info_outline, color: Color(0xFF9C5D00)),
-              title: const Text('Late Cancel (<24h)'),
-              onTap: () => Navigator.pop(ctx, 'late_cancel'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.close, color: Color(0xFFA32121)),
-              title: const Text('Cancelled'),
-              subtitle: const Text('Shown in completed for 5 days'),
-              onTap: () => Navigator.pop(ctx, 'cancelled'),
-            ),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD0D0D0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Log Attendance',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'How did the appointment go?',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+              const SizedBox(height: 16),
+              _AttendanceOption(
+                label: 'Attended',
+                subtitle: 'Mark as completed',
+                icon: Icons.check_circle_outline,
+                onTap: () => Navigator.pop(ctx, 'completed'),
+              ),
+              _AttendanceOption(
+                label: 'No Show',
+                subtitle: 'Client did not appear',
+                icon: Icons.person_off_outlined,
+                onTap: () => Navigator.pop(ctx, 'no_show'),
+              ),
+              _AttendanceOption(
+                label: 'Late Cancel',
+                subtitle: 'Cancelled within 24 hours',
+                icon: Icons.event_busy_outlined,
+                onTap: () => Navigator.pop(ctx, 'late_cancel'),
+              ),
+              _AttendanceOption(
+                label: 'Cancelled',
+                subtitle: 'Shown in completed for 5 days',
+                icon: Icons.cancel_outlined,
+                onTap: () => Navigator.pop(ctx, 'cancelled'),
+                isLast: true,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1034,7 +1013,7 @@ class _SPBookingCardState extends State<_SPBookingCard> {
                 ),
               ],
             )
-          else
+          else if (a.status == 'confirmed')
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -1048,6 +1027,11 @@ class _SPBookingCardState extends State<_SPBookingCard> {
                 icon: const Icon(Icons.check, size: 16),
                 label: const Text('Log Attendance'),
               ),
+            )
+          else
+            _LoggedAttendanceBadge(
+              status: a.status,
+              onChangeTap: () => _showAttendanceSheet(context, a),
             ),
         ],
       ),
@@ -1413,13 +1397,16 @@ class _ConsumerBookingCardState extends State<_ConsumerBookingCard> {
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton.icon(
+              child: ElevatedButton.icon(
                 onPressed: () async => widget.onAddToGoogleCalendar!(),
                 icon: const Icon(Icons.event_available_outlined, size: 16),
-                label: const Text('Add to Calendar'),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(34),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                label: const Text('Add to Calendar', style: TextStyle(fontWeight: FontWeight.w400, fontSize: 15)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2E2E2E),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(48),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                 ),
               ),
             ),
@@ -1606,6 +1593,272 @@ class _CompletedTab extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FeedbackSheet extends StatefulWidget {
+  const _FeedbackSheet({
+    required this.fs,
+    required this.appointmentId,
+    required this.consumerUid,
+    required this.onSuccess,
+    required this.onError,
+  });
+
+  final FirestoreService fs;
+  final String appointmentId;
+  final String consumerUid;
+  final VoidCallback onSuccess;
+  final void Function(Object e) onError;
+
+  @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  final _commentCtrl = TextEditingController();
+  int _selected = 5;
+
+  @override
+  void dispose() {
+    _commentCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      color: Colors.white,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomInset),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD0D0D0),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Leave a review',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Color(0xFF1A1A1A)),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'How was your experience?',
+                style: TextStyle(fontSize: 13, color: Colors.black54),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) {
+                  final starIndex = i + 1;
+                  return IconButton(
+                    onPressed: () => setState(() => _selected = starIndex),
+                    icon: Icon(
+                      starIndex <= _selected ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: starIndex <= _selected ? const Color(0xFF2E2E2E) : const Color(0xFFBBBBBB),
+                      size: 38,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _commentCtrl,
+                maxLines: 3,
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Share more about your experience (optional)',
+                  hintStyle: const TextStyle(color: Colors.black38, fontSize: 14),
+                  filled: true,
+                  fillColor: const Color(0xFFF6F6F6),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final comment = _commentCtrl.text.trim();
+                    Navigator.of(context).pop();
+                    try {
+                      await widget.fs.submitConsumerReview(
+                        appointmentId: widget.appointmentId,
+                        consumerUid: widget.consumerUid,
+                        rating: _selected,
+                        comment: comment.isEmpty ? null : comment,
+                      );
+                      widget.onSuccess();
+                    } catch (e) {
+                      widget.onError(e);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2D2D2D),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                  child: const Text('Submit review'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 46,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2D2D2D),
+                    side: const BorderSide(color: Color(0xFFD0D0D0)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoggedAttendanceBadge extends StatelessWidget {
+  const _LoggedAttendanceBadge({required this.status, required this.onChangeTap});
+
+  final String status;
+  final VoidCallback onChangeTap;
+
+  static const _labels = {
+    'completed': 'Attended',
+    'no_show': 'No Show',
+    'late_cancel': 'Late Cancel',
+    'cancelled': 'Cancelled',
+  };
+
+  static const _icons = {
+    'completed': Icons.check_circle_outline,
+    'no_show': Icons.person_off_outlined,
+    'late_cancel': Icons.event_busy_outlined,
+    'cancelled': Icons.cancel_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _labels[status] ?? status;
+    final icon = _icons[status] ?? Icons.help_outline;
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F3F3),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                Icon(icon, size: 15, color: const Color(0xFF2D2D2D)),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF2D2D2D)),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        GestureDetector(
+          onTap: onChangeTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFD0D0D0)),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Text(
+              'Change',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Color(0xFF2D2D2D)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AttendanceOption extends StatelessWidget {
+  const _AttendanceOption({
+    required this.label,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+    this.isLast = false,
+  });
+
+  final String label;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F3F3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 20, color: const Color(0xFF2D2D2D)),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A))),
+                      const SizedBox(height: 1),
+                      Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.black45)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (!isLast)
+          const Divider(height: 1, color: Color(0xFFF0F0F0)),
+      ],
     );
   }
 }
