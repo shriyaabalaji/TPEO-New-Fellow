@@ -1,4 +1,4 @@
-# TPEO New Fellow (Hook'd Up)
+# Bevo Booked
 
 Mobile marketplace app for UT Austin students built with Flutter, Riverpod, Firebase, and GoRouter.
 
